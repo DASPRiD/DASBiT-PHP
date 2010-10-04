@@ -1,0 +1,32 @@
+#!/usr/bin/env php
+<?php
+/**
+ * DASBiT
+ *
+ * LICENSE
+ *
+ * This source file is subject to the new BSD license that is bundled
+ * with this package in the file LICENSE
+ *
+ * @category   DASBiT
+ * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
+ * @license    New BSD License
+ */
+
+/**
+ * @see Dasbit\Loader
+ */
+require_once 'Dasbit/Loader.php';
+
+// Register the autoloader
+$loader = new Dasbit\Loader(null, __DIR__);
+$loader->register();
+
+// Configure the reactor
+$reactor   = new Dasbit\Reactor();
+$ircClient = new Dasbit\Irc\Client($reactor);
+
+// Load config and set client settings
+
+// Start the reactor
+$reactor->run();
