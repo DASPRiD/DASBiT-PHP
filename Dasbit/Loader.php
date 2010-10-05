@@ -65,7 +65,7 @@ class Loader
      */
     public function __construct($namespace = null, $includePath = null)
     {
-        $this->namespace   = $amespace;
+        $this->namespace   = $namespace;
         $this->includePath = $includePath;
     }
 

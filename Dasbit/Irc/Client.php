@@ -28,30 +28,229 @@ namespace Dasbit\Irc;
 class Client
 {
     /**
+     * Message types
+     */
+    const TYPE_MESSAGE = 'message';
+    const TYPE_ACT     = 'act';
+    const TYPE_NOTICE  = 'notice';
+
+
+    /**
      * Reactor instance
      * 
-     * @var Dasbit\Reactor
+     * @var \Dasbit\Reactor
      */
     protected $reactor;
 
     /**
-     * Instantiate a new IRC client
+     * Address of the IRC server
      *
-     * @param Dasbit\Reactor $reactor
+     * @var string
+     */
+    protected $address;
+
+    /**
+     * Port of the IRC server
+     *
+     * @var string
+     */
+    protected $port;
+
+    /**
+     * Nickname for the client
+     *
+     * @var string
+     */
+    protected $nickname;
+
+    /**
+     * Username for the client
+     * 
+     * @var string
+     */
+    protected $username;
+
+    /**
+     * Whether the client is connected
+     *
+     * @var boolean
+     */
+    protected $connected;
+
+    /**
+     * Client socket
+     *
+     * @var resource
+     */
+    protected $socket;
+
+    /**
+     * Instantiate a new IRC client.
+     *
+     * @param \Dasbit\Reactor $reactor
+     * @param string          $hostname
+     * @param integer         $port
+     * @param string          $nickname
+     * @param string          $username
      * @return void
      */
-    public function __construct(Dasbit\Reactor $reactor)
+    public function __construct(\Dasbit\Reactor $reactor, $hostname, $port, $nickname, $username)
     {
-        $this->reactor = $reactor;
+        $address = gethostbyname($hostname);
+
+        if (ip2long($address) === false || ($address === gethostbyaddr($address)
+            && preg_match("#.*\.[a-zA-Z]{2,3}$#", $hostname) === 0) )
+        {
+           throw new InvalidArgumentException('Hostname is not valid');
+        }
+
+        $this->reactor  = $reactor;
+        $this->address  = $address;
+        $this->port     = $port;
+        $this->nickname = $nickname;
+        $this->username = $username;
     }
 
     /**
-     * Connect to the server
+     * Connect to the server.
      *
      * @return void
      */
     public function connect()
     {
+        while (!$this->connected) {
+            $this->socket = socket_create(AF_INET, SOCK_STREAM, 0);
 
+            if ($this->socket === false) {
+                throw new SocketException('Could not create socket');
+            }
+
+            $this->connected = socket_connect($this->socket, $this->address, $this->port);
+        }
+
+        if (socket_set_nonblock($this->socket) === false) {
+            throw new SocketException('Could not set socket to non-block');
+        }
+
+        $this->reactor->addReader($this->socket, array($this, 'receiveData'));
+    }
+
+    /**
+     * Disconnect from the server.
+     *
+     * @return void
+     */
+    public function disconnect()
+    {
+        $this->reactor->removeReader($this->socket);
+
+        socket_close($this->socket);
+    }
+
+    /**
+     * Receive data.
+     *
+     * @return void
+     */
+    public function receiveData()
+    {
+        while ('' !== ($data = socket_read($this->socket, 512))) {
+            if ($data === false) {
+                // @todo Handle error
+            } elseif ($data === "\r\n") {
+                continue;
+            }
+
+            $this->parseMessage($data);
+        }
+    }
+
+    /**
+     * Parse a message.
+     *
+     * As of the complexity of hostnames, we are not strictly validating them
+     * with the included regex and instead just assume they are correct.
+     *
+     * @param  string $data
+     * @return mixed
+     */
+    protected function parseMessage($data)
+    {
+        preg_match(
+            '(^'
+            . '(?::'
+            .   '(?<prefix>'
+            .     '(?<servername>[^ ]+)'
+            .     '|'
+            .     '(?<nick>[A-Za-z][A-Za-z0-9\-\[\]\\\\`\^{}]*)'
+            .     '(?:!(?<user>[^\x20\x0\xd\xa]+))?'
+            .     '(?:@(?<host>[^ ]+))?'
+            .   ')'
+            . '[ ]+)?'
+            . '(?<command>[A-Za-z]+|\d{3})'
+            . '(?<params>[ ]+'
+            .   '(?:'
+            .     '(?<trailing>[^\x0\xd\xa]*)'
+            .     '|'
+            .     '(?<middle>[^:\x20\x0\xd\xa][^\x20\x0\xd\xa]*)(?P>params)'
+            .   ')'
+            . ')'
+            . '\r\n$)S',
+            $data,
+            $matches
+        );
+
+        $params = preg_split('([ ]+:?)', $matches['params'], null,  PREG_SPLIT_NO_EMPTY);
+
+        $message = array(
+            'prefix'  => $matches['prefix'],
+            'command' => $matches['command'],
+            'params'  => $params
+        );
+    }
+
+    /**
+     * Send a message to a user or channel.
+     *
+     * @param  string $message
+     * @param  mixed  $target
+     * @param  string $type
+     * @return void
+     */
+    public function send($message, $target, $type = self::TYPE_MESSAGE)
+    {
+        if ($target instanceof Request) {
+            if ($type === self::TYPE_NOTICE) {
+                $target = $target->getNickname();
+            } else {
+                $target = $target->getSource();
+            }
+        }
+
+        switch ($type) {
+            case self::TYPE_MESSAGE:
+                $this->sendRaw('PRIVMSG ' . $target . ' :' . $message);
+                break;
+
+            case self::TYPE_ACT:
+                $chr = chr(1);
+                $this->sendRaw('PRIVMSG ' . $target . ' :' . $chr . 'ACTION ' . $message . $chr);
+                break;
+
+            case self::TYPE_NOTICE:
+                $this->sendRaw('NOTICE ' . $target . ' :' . $message);
+                break;
+        }
+    }
+
+    /**
+     * Send raw data to the server.
+     *
+     * @param  string $string
+     * @return void
+     */
+    public function sendRaw($string)
+    {
+        $result = socket_write($this->_socket, $string . "\n", strlen($string) + 1);
     }
 }

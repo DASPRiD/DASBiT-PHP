@@ -28,6 +28,13 @@ namespace Dasbit;
 class Reactor
 {
     /**
+     * Reading sockets
+     *
+     * @var array
+     */
+    protected $readers = array();
+
+    /**
      * Run the reactor
      *
      * @return void
@@ -35,7 +42,44 @@ class Reactor
     public function run()
     {
         while (true) {
-            // Do the socket selects
+            $readers = array_keys($this->readers);
+            $writers = null;
+            $except  = null;
+
+            $changedSockets = socket_select($readers, $writers, $except, 1);
+
+            if ($changedSockets === false) {
+                // @todo What to do? :)
+            } elseif ($changedSockets > 0) {
+                foreach ($readers as $socket) {
+                    call_user_func($this->readers[$socket]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Add a reading socket
+     *
+     * @param  resource $socket
+     * @param  callback $callback
+     * @return void
+     */
+    public function addReader($socket, $callback)
+    {
+        $this->readers[] = array($socket, $callback);
+    }
+
+    /**
+     * Remove a reading socket
+     *
+     * @param  resource $socket
+     * @return void
+     */
+    public function removeReader($socket)
+    {
+        if (isset($this->readers[$socket])) {
+            unset($this->readers[$socket]);
         }
     }
 }
