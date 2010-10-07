@@ -32,7 +32,10 @@ class Reactor
      *
      * @var array
      */
-    protected $readers = array();
+    protected $readers = array(
+        'sockets'   => array(),
+        'callbacks' => array()
+    );
 
     /**
      * Run the reactor
@@ -42,7 +45,7 @@ class Reactor
     public function run()
     {
         while (true) {
-            $readers = array_keys($this->readers);
+            $readers = array_values($this->readers['sockets']);
             $writers = null;
             $except  = null;
 
@@ -52,7 +55,7 @@ class Reactor
                 // @todo What to do? :)
             } elseif ($changedSockets > 0) {
                 foreach ($readers as $socket) {
-                    call_user_func($this->readers[$socket]);
+                    call_user_func($this->readers['callbacks'][(int) $socket]);
                 }
             }
         }
@@ -67,7 +70,10 @@ class Reactor
      */
     public function addReader($socket, $callback)
     {
-        $this->readers[] = array($socket, $callback);
+        $id = (int) $socket;
+
+        $this->readers['sockets'][$id]   = $socket;
+        $this->readers['callbacks'][$id] = $callback;
     }
 
     /**
@@ -78,8 +84,11 @@ class Reactor
      */
     public function removeReader($socket)
     {
-        if (isset($this->readers[$socket])) {
-            unset($this->readers[$socket]);
+        $id = (int) $socket;
+
+        if (isset($this->readers['sockets'][$id])) {
+            unset($this->readers['sockets'][$id]);
+            unset($this->readers['callbacks'][$id]);
         }
     }
 }

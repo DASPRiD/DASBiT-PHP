@@ -85,6 +85,13 @@ class Client
     protected $socket;
 
     /**
+     * Buffer containing data read from the socket but yet not used
+     *
+     * @var string
+     */
+    protected $buffer;
+
+    /**
      * Instantiate a new IRC client.
      *
      * @param \Dasbit\Reactor $reactor
@@ -156,12 +163,32 @@ class Client
     {
         while ('' !== ($data = socket_read($this->socket, 512))) {
             if ($data === false) {
-                // @todo Handle error
-            } elseif ($data === "\r\n") {
-                continue;
+                // Socket not ready
+                return;
+                /*
+                $errorCode    = socket_last_error($this->socket);
+                $errorMessage = socket_strerror($errorCode);
+                socket_clear_error($this->socket);
+
+                echo $errorMessage . "\r\n";
+                echo 'Socket not ready';
+                break;
+                 */
             }
 
-            $this->parseMessage($data);
+            echo $data;
+            $this->buffer .= $data;
+
+            while (false !== ($pos = strpos($this->buffer, "\r\n"))) {
+                $message      = substr($this->buffer, 0, $pos + 2);
+                $this->buffer = substr($this->buffer, $pos + 2);
+
+                if ($message === "\r\n") {
+                    continue;
+                }
+
+                $this->parseMessage($message);
+            }
         }
     }
 
@@ -171,12 +198,12 @@ class Client
      * As of the complexity of hostnames, we are not strictly validating them
      * with the included regex and instead just assume they are correct.
      *
-     * @param  string $data
+     * @param  string $message
      * @return mixed
      */
-    protected function parseMessage($data)
+    protected function parseMessage($message)
     {
-        preg_match(
+        $result = preg_match(
             '(^'
             . '(?::'
             .   '(?<prefix>'
@@ -196,13 +223,19 @@ class Client
             .   ')'
             . ')'
             . '\r\n$)S',
-            $data,
+            $message,
             $matches
         );
 
-        $params = preg_split('([ ]+:?)', $matches['params'], null,  PREG_SPLIT_NO_EMPTY);
+        if ($result === 0) {
+            echo 'Could not parse message:';
+            var_dump($message);
+            exit;
+        }
 
-        $message = array(
+        $params = preg_split('([ ]+:?)', ltrim($matches['params'], ' '));
+
+        return array(
             'prefix'  => $matches['prefix'],
             'command' => $matches['command'],
             'params'  => $params
