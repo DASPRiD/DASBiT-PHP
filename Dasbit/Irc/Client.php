@@ -126,7 +126,7 @@ class Client
     public function connect()
     {
         while (!$this->connected) {
-            $this->socket = socket_create(AF_INET, SOCK_STREAM, 0);
+            $this->socket = @socket_create(AF_INET, SOCK_STREAM, 0);
 
             if ($this->socket === false) {
                 throw new SocketException('Could not create socket');
@@ -135,11 +135,14 @@ class Client
             $this->connected = socket_connect($this->socket, $this->address, $this->port);
         }
 
-        if (socket_set_nonblock($this->socket) === false) {
+        if (@socket_set_nonblock($this->socket) === false) {
             throw new SocketException('Could not set socket to non-block');
         }
 
         $this->reactor->addReader($this->socket, array($this, 'receiveData'));
+
+        $this->sendMessage('NICK', $this->nickname);
+        $this->sendMessage('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
     }
 
     /**
@@ -187,9 +190,111 @@ class Client
                     continue;
                 }
 
-                $this->parseMessage($message);
+                $this->handleMessage($message);
             }
         }
+    }
+
+    /**
+     * Handle an incoming message
+     *
+     * @param  string $message
+     * @return void
+     */
+    protected function handleMessage($message)
+    {
+        $prefix;
+        $command;
+        $params;
+
+        extract($this->parseMessage($message), EXTR_IF_EXISTS);
+
+        if (is_numeric($command)) {
+            if ($command > 400) {
+                // Error
+            } else {
+                // Command
+            }
+        } else {
+            switch ($command) {
+                case 'PRIVMSG':
+                    $this->handlePrivMsg($prefix, $params);
+                    break;
+            }
+        }
+    }
+
+    protected function handlePrivMsg($source, array $params)
+    {
+        list($target, $message) = $params;
+
+        if (preg_match('(^' . chr(1) . '[A-Za-z]+' . chr(1) . '$)S', $message, $matches) === 1) {
+            // This is a CTCP message
+        }
+    }
+
+    /**
+     * Send a message to a user or channel.
+     *
+     * @param  string $message
+     * @param  mixed  $target
+     * @param  string $type
+     * @return void
+     */
+    public function send($message, $target, $type = self::TYPE_MESSAGE)
+    {
+        if ($target instanceof Request) {
+            if ($type === self::TYPE_NOTICE) {
+                $target = $target->getNickname();
+            } else {
+                $target = $target->getSource();
+            }
+        }
+
+        switch ($type) {
+            case self::TYPE_MESSAGE:
+                $this->sendRaw('PRIVMSG ' . $target . ' :' . $message);
+                break;
+
+            case self::TYPE_ACT:
+                $chr = chr(1);
+                $this->sendRaw('PRIVMSG ' . $target . ' :' . $chr . 'ACTION ' . $message . $chr);
+                break;
+
+            case self::TYPE_NOTICE:
+                $this->sendRaw('NOTICE ' . $target . ' :' . $message);
+                break;
+        }
+    }
+
+    /**
+     * Send a message to the server
+     *
+     * @param  string $command
+     * @param  mixed  $params
+     * @return void
+     */
+    public function sendMessage($command, $params = '')
+    {
+        $message = $command;
+
+        if (is_array($params)) {
+            if (count($params) === 0) {
+                $lastParam = '';
+            } else {
+                $lastParam = array_pop($params);
+            }
+
+            if (count($params) > 0) {
+                $message .= ' ' . implode(' ', $params);
+            }
+
+            $message .= ' :' . $lastParam;
+        } else {
+            $message .= ' :' . $params;
+        }
+
+        $result = socket_write($this->socket, $message . "\r\n", strlen($message) + 1);
     }
 
     /**
@@ -237,53 +342,8 @@ class Client
 
         return array(
             'prefix'  => $matches['prefix'],
-            'command' => $matches['command'],
+            'command' => strtoupper($matches['command']),
             'params'  => $params
         );
-    }
-
-    /**
-     * Send a message to a user or channel.
-     *
-     * @param  string $message
-     * @param  mixed  $target
-     * @param  string $type
-     * @return void
-     */
-    public function send($message, $target, $type = self::TYPE_MESSAGE)
-    {
-        if ($target instanceof Request) {
-            if ($type === self::TYPE_NOTICE) {
-                $target = $target->getNickname();
-            } else {
-                $target = $target->getSource();
-            }
-        }
-
-        switch ($type) {
-            case self::TYPE_MESSAGE:
-                $this->sendRaw('PRIVMSG ' . $target . ' :' . $message);
-                break;
-
-            case self::TYPE_ACT:
-                $chr = chr(1);
-                $this->sendRaw('PRIVMSG ' . $target . ' :' . $chr . 'ACTION ' . $message . $chr);
-                break;
-
-            case self::TYPE_NOTICE:
-                $this->sendRaw('NOTICE ' . $target . ' :' . $message);
-                break;
-        }
-    }
-
-    /**
-     * Send raw data to the server.
-     *
-     * @param  string $string
-     * @return void
-     */
-    public function sendRaw($string)
-    {
-        $result = socket_write($this->_socket, $string . "\n", strlen($string) + 1);
     }
 }
