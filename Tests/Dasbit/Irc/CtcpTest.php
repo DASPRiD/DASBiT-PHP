@@ -36,15 +36,32 @@ class CtcpTest extends \PHPUnit_Framework_TestCase
         $this->ctcp = new Ctcp();
     }
 
-    public function testQuote()
+    public function testPackMultipleMessages()
     {
-        $result = $this->ctcp->quote("Foo\r\nBar\0Baz\20");
-        $this->assertEquals("Foo\20r\20nBar\20" . "0" . "Baz\20\20", $result);
+        $expected = "Say hi to Ron\020n\t/actor\001USERINFO\001Say hi to Lara\001\001Say hi to Max";
+        $result   = $this->ctcp->packMessage(array(
+            "Say hi to Ron\n\t/actor",
+            $this->ctcp->createExtendedMessage('USERINFO'),
+            'Say hi to Lara',
+            'Say hi to Max'
+        ));
+
+        $this->assertEquals($expected, $result);
     }
 
-    public function testDequote()
+    public function testUnpackMultipleMessages()
     {
-        $result = $this->ctcp->dequote("Foo\20r\20nBar\20" . "0" . "Baz\20\20\20F");
-        $this->assertEquals("Foo\r\nBar\0Baz\20F", $result);
+        $result   = $this->ctcp->unpackMessage("Say hi to Ron\020n\t/actor\001USERINFO\001Say hi to Lara\001\001Say hi to Max");
+        $expected = array(
+            "Say hi to Ron\n\t/actor",
+            array(
+                'tag'  => 'USERINFO',
+                'data' => null
+            ),
+            'Say hi to Lara',
+            'Say hi to Max'
+        );
+
+        $this->assertEquals($expected, $result);
     }
 }
