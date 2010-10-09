@@ -205,6 +205,10 @@ class Ctcp
         );
 
         if ($result === 1 && isset($matches['tag'])) {
+            if (!in_array($matches['tag'], $this->allowedTags)) {
+                return null;
+            }
+
             $result = array(
                 'tag' => $matches['tag']
             );
