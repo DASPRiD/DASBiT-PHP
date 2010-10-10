@@ -105,7 +105,7 @@ class Ctcp
 
                 $extendedMessage .= $this->createExtendedMessage($tag, $data);
             } else {
-                $standardMessage .= $part;
+                $standardMessage .= $this->ctcpQuote($part);
             }
         }
 

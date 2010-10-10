@@ -166,8 +166,75 @@ class Client
     public function disconnect()
     {
         $this->reactor->removeReader($this->socket);
-
         socket_close($this->socket);
+        $this->connected = false;
+    }
+
+    /**
+     * Join one or multiple channels.
+     *
+     * @param  mixed $channels
+     * @param  mixed $keys
+     * @return void
+     */
+    public function join($channels, $keys = null)
+    {
+        if (!is_array($channels)) {
+            $channels = array($channels);
+        }
+
+        if (!is_array($keys)) {
+            $keys = array($keys);
+        }
+
+        $this->send('JOIN', array(implode(',', $channels), implode(',', $keys)));
+    }
+
+    /**
+     * Part one or multiple channels.
+     *
+     * @param  mixed $channels
+     * @return void
+     */
+    public function part($channels)
+    {
+        if (!is_array($channels)) {
+            $channels = array($channels);
+        }
+
+        $this->send('PART', array(implode(',', $channels)));
+    }
+
+    /**
+     * Send a private message.
+     *
+     * @param  string $target
+     * @param  string $message
+     * @return void
+     */
+    public function sendPrivMsg($target, $message)
+    {
+        $this->send('PRIVMSG', array($target, $message));
+    }
+
+    /**
+     * Send a notice.
+     *
+     * @param  string $target
+     * @param  string $message
+     * @return void
+     */
+    public function sendNotice($target, $message)
+    {
+        $this->send('NOTICE', array($target, $message));
+    }
+
+    /**
+     * Quit the IRC network
+     */
+    public function quit()
+    {
+        $this->send('QUIT');
     }
 
     /**
@@ -226,6 +293,14 @@ class Client
                 case 'PRIVMSG':
                     $this->handlePrivMsg($data);
                     break;
+
+                case 'NOTICE':
+                    $this->handleNotice($data);
+                    break;
+
+                case 'PING':
+                    $this->send('PONG', $data['params'][0]);
+                    break;
             }
         }
     }
@@ -249,6 +324,17 @@ class Client
                 $this->handleCtcpRequest($data['nick'], $part);
             }
         }
+    }
+
+    /**
+     * Handle a notice.
+     *
+     * @param  array $data
+     * @return void
+     */
+    protected function handleNotice(array $data)
+    {
+        
     }
 
     /**
@@ -325,30 +411,6 @@ class Client
                     ))
                 );
         }
-    }
-
-    /**
-     * Send a private message.
-     *
-     * @param  string $target
-     * @param  string $message
-     * @return void
-     */
-    public function sendPrivMsg($target, $message)
-    {
-        $this->send('PRIVMSG', array($target, $message));
-    }
-
-    /**
-     * Send a notice.
-     *
-     * @param  string $target
-     * @param  string $message
-     * @return void
-     */
-    public function sendNotice($target, $message)
-    {
-        $this->send('NOTICE', array($target, $message));
     }
 
     /**
