@@ -28,7 +28,7 @@ namespace Dasbit;
 class Cli
 {
     /**
-     * Stream to write data to
+     * Stream to write data to.
      * 
      * @var resource
      */
@@ -66,7 +66,7 @@ class Cli
     }
 
     /**
-     * Output data coming from the client
+     * Output data coming from the client.
      *
      * @param  string $string
      * @return void

@@ -70,14 +70,15 @@ class Ctcp
      * @var array
      */
     protected $allowedTags = array(
+        'VERSION',
+        'PING',
+        'CLIENTINFO',
         'ACTION',
         'FINGER',
-        'SOURCE',
-        'USERINFO',
-        'CLIENTINFO',
+        'TIME',
+        'DCC',
         'ERRMSG',
-        'PING',
-        'TIME'
+        'PLAY'
     );
 
     /**
@@ -92,8 +93,8 @@ class Ctcp
      */
     public function packMessage(array $parts)
     {
-        $message             = '';
-        $lastPartWasExtended = true;
+        $extendedMessage = '';
+        $standardMessage = '';
 
         foreach ($parts as $part) {
             $partIsExtended = is_array($part);
@@ -102,19 +103,13 @@ class Ctcp
                 $tag  = (isset($part['tag']) ? $part['tag'] : null);
                 $data = (isset($part['data']) ? $part['data'] : null);
 
-                $message .= $this->createExtendedMessage($tag, $data);
+                $extendedMessage .= $this->createExtendedMessage($tag, $data);
             } else {
-                if (!$lastPartWasExtended) {
-                    $message .= self::DELIMITER . self::DELIMITER;
-                }
-
-                $message .= $this->ctcpQuote($part);
+                $standardMessage .= $part;
             }
-            
-            $lastPartWasExtended = $partIsExtended;
         }
 
-        return $this->lowLevelQuote($message);
+        return $this->lowLevelQuote($extendedMessage . $standardMessage);
     }
 
     /**
@@ -143,21 +138,24 @@ class Ctcp
             $matches
         );
 
-        $parts = array();
+        $parts           = array();
+        $standardMessage = '';
 
         foreach ($matches[0] as $match) {
             $match = $this->ctcpDequote($match);
 
             if ($match[0] === self::DELIMITER) {
-                $ctcpMessage = $this->parseCtcpMessage($match);
+                $extendedMessage = $this->parseExtendedMessage($match);
 
-                if ($ctcpMessage !== null) {
-                    $parts[] = $ctcpMessage;
+                if ($extendedMessage !== null) {
+                    $parts[] = $extendedMessage;
                 }
             } else {
-                $parts[] = $match;
+                $standardMessage .= $match;
             }
         }
+
+        $parts[] = $standardMessage;
 
         return $parts;
     }
@@ -191,12 +189,12 @@ class Ctcp
     }
 
     /**
-     * Parse a CTCP message.
+     * Parse an extended message.
      *
      * @param  string $message
      * @return array
      */
-    protected function parseCtcpMessage($message)
+    protected function parseExtendedMessage($message)
     {
         $result = preg_match(
             "(" . self::DELIMITER

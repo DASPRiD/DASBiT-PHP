@@ -98,6 +98,13 @@ class Client
     protected $buffer;
 
     /**
+     * CTCP handler
+     *
+     * @var Ctcp
+     */
+    protected $ctcp;
+
+    /**
      * Instantiate a new IRC client.
      *
      * @param \Dasbit\Reactor $reactor
@@ -124,6 +131,7 @@ class Client
         $this->port     = $port;
         $this->nickname = $nickname;
         $this->username = $username;
+        $this->ctcp     = new Ctcp();
     }
 
     /**
@@ -153,8 +161,8 @@ class Client
 
         $this->cli->clientOutput('Connected, authenticating...');
 
-        $this->sendMessage('NICK', $this->nickname);
-        $this->sendMessage('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
+        $this->send('NICK', $this->nickname);
+        $this->send('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
     }
 
     /**
@@ -210,78 +218,154 @@ class Client
      */
     protected function handleMessage($message)
     {
-        $prefix  = null;
-        $command = null;
-        $params  = null;
+        if (null === ($data = $this->parseMessage($message))) {
+            return;
+        }
 
-        extract($this->parseMessage($message), EXTR_IF_EXISTS);
-
-        if (is_numeric($command)) {
-            if ($command > 400) {
+        if (is_numeric($data['command'])) {
+            if ($data['command'] > 400) {
                 // Error
             } else {
                 // Command
             }
         } else {
-            switch ($command) {
+            switch ($data['command']) {
                 case 'PRIVMSG':
-                    $this->handlePrivMsg($prefix, $params);
+                    $this->handlePrivMsg($data);
                     break;
             }
         }
     }
 
-    protected function handlePrivMsg($source, array $params)
-    {
-        list($target, $message) = $params;
-
-        if (preg_match('(^' . chr(1) . '[A-Za-z]+' . chr(1) . '$)S', $message, $matches) === 1) {
-            // This is a CTCP message
-        }
-    }
-
     /**
-     * Send a message to a user or channel.
+     * Handle a private message.
      *
-     * @param  string $message
-     * @param  mixed  $target
-     * @param  string $type
+     * @param  array $data
      * @return void
      */
-    public function send($message, $target, $type = self::TYPE_MESSAGE)
+    protected function handlePrivMsg(array $data)
     {
-        if ($target instanceof Request) {
-            if ($type === self::TYPE_NOTICE) {
-                $target = $target->getNickname();
+        list($target, $message) = $data['params'];
+
+        $parts = $this->ctcp->unpackMessage($message);
+
+        foreach ($parts as $part) {
+            if (is_string($part)) {
+                
             } else {
-                $target = $target->getSource();
+                $this->handleCtcpRequest($data['nick'], $part);
             }
-        }
-
-        switch ($type) {
-            case self::TYPE_MESSAGE:
-                $this->sendRaw('PRIVMSG ' . $target . ' :' . $message);
-                break;
-
-            case self::TYPE_ACT:
-                $chr = chr(1);
-                $this->sendRaw('PRIVMSG ' . $target . ' :' . $chr . 'ACTION ' . $message . $chr);
-                break;
-
-            case self::TYPE_NOTICE:
-                $this->sendRaw('NOTICE ' . $target . ' :' . $message);
-                break;
         }
     }
 
     /**
-     * Send a message to the server
+     * Handle a CTCP request.
+     *
+     * @see    http://www.invlogic.com/irc/ctcp2_4.html
+     * @param  string $nick
+     * @param  array  $request
+     * @return void
+     */
+    protected function handleCtcpRequest($nick, array $request)
+    {
+        switch ($request['tag']) {
+            case 'VERSION':
+                $this->sendNotice(
+                    $nick,
+                    $this->ctcp->packMessage(array(
+                        array(
+                            'tag'  => 'VERSION',
+                            'data' => 'DASBiT ' . \Dasbit\Version::getVersion() . ' ' . PHP_OS
+                        )
+                    ))
+                );
+                break;
+
+            case 'PING':
+                $this->sendNotice(
+                    $nick,
+                    $this->ctcp->packMessage(array(
+                        array(
+                            'tag'  => 'PING',
+                            'data' => $request['date']
+                        )
+                    ))
+                );
+                break;
+
+            case 'CLIENTINFO':
+                $this->sendNotice(
+                    $nick,
+                    $this->ctcp->packMessage(array(
+                        array(
+                            'tag'  => 'CLIENTINFO',
+                            'data' => 'PING VERSION TIME CLIENTINFO'
+                        )
+                    ))
+                );
+                break;
+
+            case 'TIME':
+                $this->sendNotice(
+                    $nick,
+                    $this->ctcp->packMessage(array(
+                        array(
+                            'tag'  => 'TIME',
+                            'data' => date('r')
+                        )
+                    ))
+                );
+                break;
+
+            case 'ACTION':
+                // This is not really a CTCP request
+                break;
+
+            default:
+                $this->sendNotice(
+                    $nick,
+                    $this->ctcp->packMessage(array(
+                        array(
+                            'tag'  => 'ERRMSG',
+                            'data' => 'Unknown request'
+                        )
+                    ))
+                );
+        }
+    }
+
+    /**
+     * Send a private message.
+     *
+     * @param  string $target
+     * @param  string $message
+     * @return void
+     */
+    public function sendPrivMsg($target, $message)
+    {
+        $this->send('PRIVMSG', array($target, $message));
+    }
+
+    /**
+     * Send a notice.
+     *
+     * @param  string $target
+     * @param  string $message
+     * @return void
+     */
+    public function sendNotice($target, $message)
+    {
+        $this->send('NOTICE', array($target, $message));
+    }
+
+    /**
+     * Send data to the server.
      *
      * @param  string $command
      * @param  mixed  $params
      * @return void
      */
-    public function sendMessage($command, $params = '')
+    public function send($command, $params = '')
     {
         $message = $command;
 
@@ -301,6 +385,8 @@ class Client
             $message .= ' :' . $params;
         }
 
+        $this->cli->clientOutput($message);
+
         $result = socket_write($this->socket, $message . "\r\n", strlen($message) + 1);
     }
 
@@ -315,21 +401,22 @@ class Client
      */
     protected function parseMessage($message)
     {
+        // General validating and parsing
         $result = preg_match(
             '(^'
             . '(?::'
             .   '(?<prefix>'
-            .     '(?<servername>[^ ]+)'
-            .     '|'
-            .     '(?<nick>[A-Za-z][A-Za-z0-9\-\[\]\\\\`\^{}]*)'
-            .     '(?:!(?<user>[^\x20\x0\xd\xa]+))?'
+            .     '(?<nick>[A-Za-z][A-Za-z0-9\-\[\]\\\\`\^{}]*?)'
+            .     '(?:!(?<user>[^\x20\x0\xd\xa]+?))?'
             .     '(?:@(?<host>[^ ]+))?'
+            .     '|'
+            .     '(?<servername>[^ ]+)'
             .   ')'
             . '[ ]+)?'
             . '(?<command>[A-Za-z]+|\d{3})'
             . '(?<params>[ ]+'
             .   '(?:'
-            .     '(?<trailing>[^\x0\xd\xa]*)'
+            .     ':(?<trailing>[^\x0\xd\xa]*)'
             .     '|'
             .     '(?<middle>[^:\x20\x0\xd\xa][^\x20\x0\xd\xa]*)(?P>params)'
             .   ')'
@@ -340,17 +427,36 @@ class Client
         );
 
         if ($result === 0) {
-            echo 'Could not parse message:';
-            var_dump($message);
-            exit;
+            return null;
         }
 
-        $params = preg_split('([ ]+:?)', ltrim($matches['params'], ' '));
-
-        return array(
-            'prefix'  => $matches['prefix'],
-            'command' => strtoupper($matches['command']),
-            'params'  => $params
+        // Parameter parsing
+        preg_match_all(
+            '([ ]+'
+            .   '(:)?(?<param>(?(1)'
+            .     '[^\x0\xd\xa]*'
+            .     '|'
+            .     '[^:\x20\x0\xd\xa][^\x20\x0\xd\xa]*'
+            .   '))'
+            . ')S',
+            $matches['params'],
+            $paramMatches
         );
+
+        // Data generation
+        $data = array(
+            'command' => strtoupper($matches['command']),
+            'params'  => $paramMatches['param']
+        );
+
+        if (isset($matches['servername']) && !empty($matches['servername'])) {
+            $data['servername'] = $matches['servername'];
+        } else {
+            $data['nick'] = $matches['nick'];
+            $data['user'] = (isset($matches['user']) && !empty($matches['user'])) ? $matches['user'] : null;
+            $data['host'] = (isset($matches['host']) && !empty($matches['host'])) ? $matches['host'] : null;
+        }
+
+        return $data;
     }
 }
