@@ -41,7 +41,10 @@ class CtcpTest extends \PHPUnit_Framework_TestCase
         $expected = "Say hi to Ron\020n\t/actor\001USERINFO\001Say hi to Lara\001\001Say hi to Max";
         $result   = $this->ctcp->packMessage(array(
             "Say hi to Ron\n\t/actor",
-            $this->ctcp->createExtendedMessage('USERINFO'),
+            array(
+                'tag'  => 'USERINFO',
+                'data' => null
+            ),
             'Say hi to Lara',
             'Say hi to Max'
         ));

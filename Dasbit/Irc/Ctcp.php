@@ -83,44 +83,46 @@ class Ctcp
     /**
      * Pack a message.
      *
-     * Instead of inserting arrays for CTCP messages, like they come out from
-     * unpackMessage(), you directly supply strings created with
-     * createExtendedMessage().
+     * The parts array can contain standard and extended messages. Standard
+     * messages must be strings, while extended messages must be arrays,
+     * containing a 'tag' and optionally additional 'data'.
      *
-     * @param  array $messages
+     * @param  array $parts
      * @return string
      */
-    public function packMessage($messages)
+    public function packMessage(array $parts)
     {
-        if (is_string($messages)) {
-            $messages = array($messages);
-        }
+        $message             = '';
+        $lastPartWasExtended = true;
 
-        $result             = '';
-        $lastMessageWasCtcp = true;
+        foreach ($parts as $part) {
+            $partIsExtended = is_array($part);
 
-        foreach ($messages as $message) {
-            $messages      = $this->ctcpQuote($message);
-            $messageIsCtcp = (isset($message[0]) && $message[0] === self::DELIMITER);
+            if ($partIsExtended) {
+                $tag  = (isset($part['tag']) ? $part['tag'] : null);
+                $data = (isset($part['data']) ? $part['data'] : null);
 
-            if (!$messageIsCtcp && !$lastMessageWasCtcp) {
-                $result .= self::DELIMITER . self::DELIMITER;
+                $message .= $this->createExtendedMessage($tag, $data);
+            } else {
+                if (!$lastPartWasExtended) {
+                    $message .= self::DELIMITER . self::DELIMITER;
+                }
+
+                $message .= $this->ctcpQuote($part);
             }
-
-            $result .= $message;
-
-            $lastMessageWasCtcp = $messageIsCtcp;
+            
+            $lastPartWasExtended = $partIsExtended;
         }
 
-        return $this->lowLevelQuote($result);
+        return $this->lowLevelQuote($message);
     }
 
     /**
      * Unpack a message.
      *
-     * The returned array will contain all splitted standard and CTCP messages.
-     * Standard messages will simply be strings, while CTCP messages will be
-     * arrays containing 'tag' and 'data'.
+     * The returned array will contain all splitted standard and extended
+     * messages. Standard messages will simply be strings, while extended
+     * messages will be represented as arrays containing 'tag' and 'data'.
      *
      * @param  string $message
      * @return array
@@ -141,7 +143,7 @@ class Ctcp
             $matches
         );
 
-        $messages = array();
+        $parts = array();
 
         foreach ($matches[0] as $match) {
             $match = $this->ctcpDequote($match);
@@ -150,14 +152,14 @@ class Ctcp
                 $ctcpMessage = $this->parseCtcpMessage($match);
 
                 if ($ctcpMessage !== null) {
-                    $messages[] = $ctcpMessage;
+                    $parts[] = $ctcpMessage;
                 }
             } else {
-                $messages[] = $match;
+                $parts[] = $match;
             }
         }
 
-        return $messages;
+        return $parts;
     }
 
     /**
@@ -167,7 +169,7 @@ class Ctcp
      * @param  string $data
      * @return string
      */
-    public function createExtendedMessage($tag = null, $data = null)
+    protected function createExtendedMessage($tag = null, $data = null)
     {
         $message = self::DELIMITER;
 
@@ -176,10 +178,10 @@ class Ctcp
                 throw new UnexpectedValueException(sprintf('"%s" is not a valid tag', $tag));
             }
 
-            $message .= $tag;
+            $message .= $this->ctcpQuote($tag);
 
             if ($data !== null) {
-                $message .= ' ' . $data;
+                $message .= ' ' . $this->ctcpQuote($data);
             }
         }
 

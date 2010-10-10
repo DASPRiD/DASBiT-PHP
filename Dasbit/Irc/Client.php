@@ -36,56 +36,56 @@ class Client
 
 
     /**
-     * Reactor instance
+     * Reactor instance.
      * 
      * @var \Dasbit\Reactor
      */
     protected $reactor;
 
     /**
-     * Address of the IRC server
+     * Address of the IRC server.
      *
      * @var string
      */
     protected $address;
 
     /**
-     * Port of the IRC server
+     * Port of the IRC server.
      *
      * @var string
      */
     protected $port;
 
     /**
-     * Nickname for the client
+     * Nickname for the client.
      *
      * @var string
      */
     protected $nickname;
 
     /**
-     * Username for the client
+     * Username for the client.
      * 
      * @var string
      */
     protected $username;
 
     /**
-     * Whether the client is connected
+     * Whether the client is connected.
      *
      * @var boolean
      */
     protected $connected;
 
     /**
-     * Client socket
+     * Client socket.
      *
      * @var resource
      */
     protected $socket;
 
     /**
-     * Buffer containing data read from the socket but yet not used
+     * Buffer containing data read from the socket but yet not used.
      *
      * @var string
      */
@@ -196,7 +196,7 @@ class Client
     }
 
     /**
-     * Handle an incoming message
+     * Handle an incoming message.
      *
      * @param  string $message
      * @return void
