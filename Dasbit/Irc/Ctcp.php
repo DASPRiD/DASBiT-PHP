@@ -155,7 +155,9 @@ class Ctcp
             }
         }
 
-        $parts[] = $standardMessage;
+        if (!empty($standardMessage)) {
+            $parts[] = $standardMessage;
+        }
 
         return $parts;
     }
