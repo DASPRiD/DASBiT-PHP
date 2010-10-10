@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * Exception marker interface
+ * Exception marker interface.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc

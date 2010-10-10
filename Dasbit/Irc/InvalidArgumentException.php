@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * Invalid Argument exception
+ * Invalid Argument exception.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc

@@ -18,7 +18,7 @@
 namespace Dasbit;
 
 /**
- * Version handling
+ * Version handling.
  *
  * @category   DASBiT
  * @package    Dasbit_Version
@@ -28,12 +28,12 @@ namespace Dasbit;
 class Version
 {
     /**
-     * DASBiT version, should be in the format <major>.<minor>.<mini>[<suffix>]
+     * DASBiT version, should be in the format <major>.<minor>.<mini>[<suffix>].
      */
     const VERSION = '6.0.0alpha1';
 
     /**
-     * Constants of version parts
+     * Constants of version parts.
      */
     const PART_MAJOR  = 'major';
     const PART_MINOR  = 'minor';
@@ -41,7 +41,7 @@ class Version
     const PART_SUFFIX = 'suffix';
 
     /**
-     * Reverse map of version parts
+     * Reverse map of version parts.
      *
      * @var array
      */
@@ -53,7 +53,7 @@ class Version
     );
 
     /**
-     * Get the version
+     * Get the version.
      *
      * If $part is null, the entire version is returned. If it is a string,
      * the version part is returned. If a part is given and $fromBeginning is

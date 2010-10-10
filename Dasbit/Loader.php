@@ -29,28 +29,28 @@ namespace Dasbit;
 class Loader
 {
     /**
-     * File extension of PHP files
+     * File extension of PHP files.
      *
      * @var string
      */
     protected $fileExtension = '.php';
 
     /**
-     * Namespace to load
+     * Namespace to load.
      *
      * @var string
      */
     protected $namespace;
 
     /**
-     * Include path to include files from
+     * Include path to include files from.
      *
      * @var string
      */
     protected $includePath;
 
     /**
-     * Namespace separator
+     * Namespace separator.
      *
      * @var string
      */

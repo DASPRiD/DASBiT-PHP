@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * IRC Client
+ * IRC Client.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc
@@ -27,13 +27,6 @@ namespace Dasbit\Irc;
  */
 class Client
 {
-    /**
-     * Message types
-     */
-    const TYPE_MESSAGE = 'message';
-    const TYPE_ACT     = 'act';
-    const TYPE_NOTICE  = 'notice';
-
     /**
      * Reactor instance.
      * 

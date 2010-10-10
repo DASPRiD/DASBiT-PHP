@@ -18,7 +18,7 @@
 namespace Dasbit;
 
 /**
- * Exception marker interface
+ * Exception marker interface.
  *
  * @category   DASBiT
  * @package    Dasbit

@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * Socket exception
+ * Socket exception.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc

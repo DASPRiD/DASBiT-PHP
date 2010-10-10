@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * Unexpected Value exception
+ * Unexpected Value exception.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc

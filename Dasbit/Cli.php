@@ -18,7 +18,7 @@
 namespace Dasbit;
 
 /**
- * CLI interface
+ * CLI interface.
  *
  * @category   DASBiT
  * @package    Dasbit_Cli

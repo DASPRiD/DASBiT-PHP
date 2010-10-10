@@ -18,7 +18,7 @@
 namespace Dasbit\Irc;
 
 /**
- * IRC Client
+ * CTCP helper.
  *
  * @category   DASBiT
  * @package    Dasbit_Irc

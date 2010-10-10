@@ -18,7 +18,7 @@
 namespace Dasbit;
 
 /**
- * Reactor implementation
+ * Reactor implementation.
  *
  * @category   DASBiT
  * @package    Dasbit_Reactor
@@ -28,7 +28,7 @@ namespace Dasbit;
 class Reactor
 {
     /**
-     * Reading sockets
+     * Reading sockets.
      *
      * @var array
      */
@@ -38,7 +38,7 @@ class Reactor
     );
 
     /**
-     * Run the reactor
+     * Run the reactor.
      *
      * @return void
      */
@@ -62,7 +62,7 @@ class Reactor
     }
 
     /**
-     * Add a reading socket
+     * Add a reading socket.
      *
      * @param  resource $socket
      * @param  callback $callback
@@ -77,7 +77,7 @@ class Reactor
     }
 
     /**
-     * Remove a reading socket
+     * Remove a reading socket.
      *
      * @param  resource $socket
      * @return void
@@ -93,7 +93,7 @@ class Reactor
     }
 
     /**
-     * Add a timeout callback
+     * Add a timeout callback.
      *
      * @param  integer  $seconds
      * @param  callback $callback
