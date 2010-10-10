@@ -38,11 +38,11 @@ class CtcpTest extends \PHPUnit_Framework_TestCase
 
     public function testPackMultipleMessages()
     {
-        $expected = "Say hi to Ron\020n\t/actor\001USERINFO\001Say hi to Lara\001\001Say hi to Max";
+        $expected = "\001CLIENTINFO\001Say hi to Ron\020n\t/actorSay hi to LaraSay hi to Max";
         $result   = $this->ctcp->packMessage(array(
             "Say hi to Ron\n\t/actor",
             array(
-                'tag'  => 'USERINFO',
+                'tag'  => 'CLIENTINFO',
                 'data' => null
             ),
             'Say hi to Lara',
@@ -54,15 +54,13 @@ class CtcpTest extends \PHPUnit_Framework_TestCase
 
     public function testUnpackMultipleMessages()
     {
-        $result   = $this->ctcp->unpackMessage("Say hi to Ron\020n\t/actor\001USERINFO\001Say hi to Lara\001\001Say hi to Max");
+        $result   = $this->ctcp->unpackMessage("Say hi to Ron\020n\t/actor\001CLIENTINFO\001Say hi to Lara\001\001Say hi to Max");
         $expected = array(
-            "Say hi to Ron\n\t/actor",
             array(
-                'tag'  => 'USERINFO',
+                'tag'  => 'CLIENTINFO',
                 'data' => null
             ),
-            'Say hi to Lara',
-            'Say hi to Max'
+            "Say hi to Ron\n\t/actorSay hi to LaraSay hi to Max"
         );
 
         $this->assertEquals($expected, $result);

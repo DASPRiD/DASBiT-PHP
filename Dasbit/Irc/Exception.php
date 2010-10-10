@@ -25,6 +25,6 @@ namespace Dasbit\Irc;
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
-interface Exception extends Dasbit\Exception
+interface Exception extends \Dasbit\Exception
 {
 }
