@@ -14,12 +14,12 @@
  */
 
 /**
- * @see Dasbit\Loader
+ * @see \Dasbit\Loader
  */
 require_once 'Dasbit/Loader.php';
 
 // Register the autoloader
-$loader = new Dasbit\Loader(null, __DIR__);
+$loader = new \Dasbit\Loader(null, __DIR__);
 $loader->register();
 
 // Load the config
@@ -28,9 +28,10 @@ $port     = 6667;
 $nickname = 'DASBiT';
 $username = 'dasbit';
 
-// Configure the reactor
-$reactor   = new Dasbit\Reactor();
-$ircClient = new Dasbit\Irc\Client($reactor, $hostname, $port, $nickname, $username);
+// Configure the reactor and IRC client
+$reactor   = new \Dasbit\Reactor();
+$cli       = new \Dasbit\Cli();
+$ircClient = new \Dasbit\Irc\Client($reactor, $cli, $hostname, $port, $nickname, $username);
 $ircClient->connect();
 
 // Start the reactor

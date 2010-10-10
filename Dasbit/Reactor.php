@@ -91,4 +91,16 @@ class Reactor
             unset($this->readers['callbacks'][$id]);
         }
     }
+
+    /**
+     * Add a timeout callback
+     *
+     * @param  integer  $seconds
+     * @param  callback $callback
+     * @return void
+     */
+    public function addTimeout($seconds, $callback)
+    {
+
+    }
 }

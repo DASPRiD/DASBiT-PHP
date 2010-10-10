@@ -34,13 +34,19 @@ class Client
     const TYPE_ACT     = 'act';
     const TYPE_NOTICE  = 'notice';
 
-
     /**
      * Reactor instance.
      * 
      * @var \Dasbit\Reactor
      */
     protected $reactor;
+
+    /**
+     * CLI instance.
+     *
+     * @var \Dasbit\Cli
+     */
+    protected $cli;
 
     /**
      * Address of the IRC server.
@@ -95,13 +101,14 @@ class Client
      * Instantiate a new IRC client.
      *
      * @param \Dasbit\Reactor $reactor
+     * @param \Dasbit\Cli     $cli
      * @param string          $hostname
      * @param integer         $port
      * @param string          $nickname
      * @param string          $username
      * @return void
      */
-    public function __construct(\Dasbit\Reactor $reactor, $hostname, $port, $nickname, $username)
+    public function __construct(\Dasbit\Reactor $reactor, \Dasbit\Cli $cli, $hostname, $port, $nickname, $username)
     {
         $address = gethostbyname($hostname);
 
@@ -112,6 +119,7 @@ class Client
         }
 
         $this->reactor  = $reactor;
+        $this->cli      = $cli;
         $this->address  = $address;
         $this->port     = $port;
         $this->nickname = $nickname;
@@ -126,6 +134,8 @@ class Client
     public function connect()
     {
         while (!$this->connected) {
+            $this->cli->clientOutput(sprintf('Connecting to %s port %d...', $this->address, $this->port));
+
             $this->socket = @socket_create(AF_INET, SOCK_STREAM, 0);
 
             if ($this->socket === false) {
@@ -140,6 +150,8 @@ class Client
         }
 
         $this->reactor->addReader($this->socket, array($this, 'receiveData'));
+
+        $this->cli->clientOutput('Connected, authenticating...');
 
         $this->sendMessage('NICK', $this->nickname);
         $this->sendMessage('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
@@ -164,27 +176,22 @@ class Client
      */
     public function receiveData()
     {
-        while ('' !== ($data = socket_read($this->socket, 512))) {
-            if ($data === false) {
-                // Socket not ready
-                return;
-                /*
-                $errorCode    = socket_last_error($this->socket);
-                $errorMessage = socket_strerror($errorCode);
-                socket_clear_error($this->socket);
+        while (false !== ($data = socket_read($this->socket, 512))) {
+            if ($data === '') {
+                $this->cli->clientOutput('Disconnected from server, reconnecting in 10 seconds...');
 
-                echo $errorMessage . "\r\n";
-                echo 'Socket not ready';
-                break;
-                 */
+                $this->disconnect();
+                $this->reactor->addTimeout(10, array($this, 'connect'));
+                return;
             }
 
-            echo $data;
             $this->buffer .= $data;
 
             while (false !== ($pos = strpos($this->buffer, "\r\n"))) {
                 $message      = substr($this->buffer, 0, $pos + 2);
                 $this->buffer = substr($this->buffer, $pos + 2);
+
+                $this->cli->serverOutput($message);
 
                 if ($message === "\r\n") {
                     continue;
@@ -203,9 +210,9 @@ class Client
      */
     protected function handleMessage($message)
     {
-        $prefix;
-        $command;
-        $params;
+        $prefix  = null;
+        $command = null;
+        $params  = null;
 
         extract($this->parseMessage($message), EXTR_IF_EXISTS);
 
