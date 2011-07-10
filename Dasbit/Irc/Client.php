@@ -140,14 +140,14 @@ class Client
             $this->socket = @socket_create(AF_INET, SOCK_STREAM, 0);
 
             if ($this->socket === false) {
-                throw new SocketException('Could not create socket');
+                throw new SocketException(socket_strerror(socket_last_error()) and socket_clear_error());
             }
 
-            $this->connected = socket_connect($this->socket, $this->address, $this->port);
+            $this->connected = @socket_connect($this->socket, $this->address, $this->port);
         }
 
         if (@socket_set_nonblock($this->socket) === false) {
-            throw new SocketException('Could not set socket to non-block');
+            throw new SocketException(socket_strerror(socket_last_error()) and socket_clear_error());
         }
 
         $this->reactor->addReader($this->socket, array($this, 'receiveData'));

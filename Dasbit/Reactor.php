@@ -36,6 +36,13 @@ class Reactor
         'sockets'   => array(),
         'callbacks' => array()
     );
+    
+    /**
+     * Timeouts to execute.
+     * 
+     * @var array
+     */
+    protected $timeouts = array();
 
     /**
      * Run the reactor.
@@ -44,15 +51,30 @@ class Reactor
      */
     public function run()
     {
-        while (true) {
-            $readers = array_values($this->readers['sockets']);
-            $writers = null;
-            $except  = null;
+        $writers = null;
+        $except  = null;
 
-            $changedSockets = socket_select($readers, $writers, $except, 1);
+        while (true) {
+            // Check for timeouts
+            $minTimeout = null;
+            
+            foreach ($this->timeouts as $index => $timeout) {
+                $timeLeft = (time() - $timeout['time']);
+                
+                if ($timeLeft <= 0) {
+                    call_user_func($timeout['callback']);
+                    unset($this->timeouts[$index]);
+                } else {
+                    $minTimeout = min($minTimeout, $timeLeft);
+                }
+            }
+            
+            // Check sockets
+            $readers        = array_values($this->readers['sockets']);
+            $changedSockets = socket_select($readers, $writers, $except, $minTimeout);
 
             if ($changedSockets === false) {
-                // @todo What to do? :)
+                // Error on one of the sockets, ignore.
             } elseif ($changedSockets > 0) {
                 foreach ($readers as $socket) {
                     call_user_func($this->readers['callbacks'][(int) $socket]);
@@ -101,6 +123,9 @@ class Reactor
      */
     public function addTimeout($seconds, $callback)
     {
-
+        $this->timeouts[] = array(
+            'time'     => (time() + $seconds),
+            'callback' => $callback
+        );
     }
 }

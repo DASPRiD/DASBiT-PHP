@@ -49,9 +49,9 @@ class Ctcp
      */
     protected $mQuoteMap = array(
         self::M_QUOTE => self::M_QUOTE,
-        "\0"        => '0',
-        "\r"        => 'r',
-        "\n"        => 'n'
+        "\0"          => '0',
+        "\r"          => 'r',
+        "\n"          => 'n'
     );
 
     /**
