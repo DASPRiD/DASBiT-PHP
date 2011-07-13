@@ -442,7 +442,7 @@ class Client
 
         $this->cli->clientOutput($message);
 
-        $result = socket_write($this->socket, $message . "\r\n", strlen($message) + 1);
+        $result = socket_write($this->socket, $message . "\r\n", strlen($message) + 2);
     }
 
     /**
