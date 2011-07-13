@@ -43,6 +43,20 @@ class Manager
      * @var array
      */
     protected $plugins = array();
+    
+    /**
+     * Registered commands.
+     * 
+     * @var array
+     */
+    protected $commands = array();
+    
+    /**
+     * Registered hooks.
+     * 
+     * @var array
+     */
+    protected $hooks = array();
        
     /**
      * Load plugins from a directory.
@@ -105,9 +119,7 @@ class Manager
         
         $this->plugins[$plugin->getName()] = array(
             'plugin'   => $plugin,
-            'active'   => $active,
-            'commands' => array(),
-            'hooks'    => array()
+            'active'   => $active
         );
         
         return $this;
@@ -146,6 +158,10 @@ class Manager
      */
     public function getClient()
     {
+        if ($this->client === null) {
+            throw new RuntimeException('Client was not set');
+        }
+        
         return $this->client;
     }
     
@@ -156,15 +172,45 @@ class Manager
      * @param  mixed $callback
      * @return void
      */
-    public function registerCommand($command, $callback)
+    public function registerCommand($pluginName, $command, $callback)
     {
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin with name "%s" was not registered', $pluginName));
+        }
+        
         if (is_string($command)) {
             $command = array($command);
         }
-        
+               
         foreach ($command as $option) {
-            $this->commands[$option] = $callback;
+            $this->commands[$option] = array(
+                'pluginName' => $pluginName,
+                'callback'   => $callback
+            );
         }
+    }
+       
+    /**
+     * Register a hook.
+     * 
+     * @param  string $hook
+     * @param  mixed  $callback
+     * @return void
+     */
+    public function registerHook($pluginName, $hook, $callback)
+    {
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin with name "%s" was not registered', $pluginName));
+        }
+        
+        if (!isset($this->hooks[$hook])) {
+            $this->hooks[$hook] = array();
+        }
+        
+        $this->hooks[$hook][] = array(
+            'pluginName' => $pluginName,
+            'callback'   => $callback
+        );
     }
     
     /**
@@ -180,22 +226,6 @@ class Manager
     }
     
     /**
-     * Register a hook.
-     * 
-     * @param  string $hook
-     * @param  mixed  $callback
-     * @return void
-     */
-    public function registerHook($hook, $callback)
-    {
-        if (!isset($this->hooks[$hook])) {
-            $this->hooks[$hook] = array();
-        }
-        
-        $this->hooks[$hook][] = $callback;
-    }
-    
-    /**
      * Trigger a hook.
      * 
      * @param  string $hook
@@ -208,8 +238,21 @@ class Manager
             return;
         }
         
-        foreach ($this->hooks[$hook] as $callback) {
-            call_user_func($callback, $hook, $data);
+        foreach ($this->hooks[$hook] as $hookData) {
+            if ($this->plugins[$hookData['pluginName']]['active']) {
+                call_user_func($hookData['callback'], $hook, $data);
+            }
         }
+    }
+    
+    /**
+     * Check if a private message contains a command and execute it.
+     * 
+     * @param  PrivMsg $privMsg
+     * @return void
+     */
+    public function checkForCommand(PrivMsg $privMsg)
+    {
+        
     }
 }
