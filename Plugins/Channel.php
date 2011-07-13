@@ -17,7 +17,8 @@
  */
 namespace Dasbit\Plugin;
 
-use \Dasbit\Irc\Command;
+use \Dasbit\Plugin\Plugin,
+    \Dasbit\Irc\Command;
 
 /**
  * Channel plugin.
@@ -38,8 +39,8 @@ class Channel extends Plugin
     protected $dbSchema = array(
         'channels' => array(
             'channel_id'   => 'INTEGER PRIMARY KEY',
-            'channel_name' => 'VARCHAR(40)',
-            'channel_key'  => 'VARCHAR(40)'
+            'channel_name' => 'TEXT',
+            'channel_key'  => 'TEXT'
         )
     );
     
@@ -53,7 +54,9 @@ class Channel extends Plugin
     {
         $this->registerCommand('join', 'join')
              ->registerCommand('part', 'part')
-             ->registerHook('client.connected', 'connectedHook');
+             ->registerHook('reply.connected', 'connectedHook')
+             ->registerHook('error.no-such-channel', 'removeHook')
+             ->registerHook('error.too-many-channels', 'removeHook');
     }
     
     /**
@@ -89,9 +92,10 @@ class Channel extends Plugin
      * Called when the client is connected.
      * 
      * @param  string $hook
+     * @param  mixed  $data
      * @return void
      */
-    public function connectedHook($hook)
+    public function connectedHook($hook, $data)
     {
         $channels = $this->db->fetchAll("
             SELECT channel_name,
@@ -102,5 +106,17 @@ class Channel extends Plugin
         foreach ($channels as $channel) {
             $this->client->join($channel['channel_name'], $channel['channel_key']);
         }
+    }
+    
+    /**
+     * Called when the joining a channel failed.
+     * 
+     * @param  string $hook
+     * @param  mixed  $data
+     * @return void
+     */
+    public function removeHook($hook, $data)
+    {
+        $this->db->delete('channels', sprintf("channel_name = %s", $this->db->quote($data)));
     }
 }

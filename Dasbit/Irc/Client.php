@@ -17,6 +17,10 @@
  */
 namespace Dasbit\Irc;
 
+use \Dasbit\Reactor,
+    \Dasbit\Cli,
+    \Dasbit\Plugin\Manager as PluginManager;
+
 /**
  * IRC Client.
  *
@@ -30,16 +34,23 @@ class Client
     /**
      * Reactor instance.
      * 
-     * @var \Dasbit\Reactor
+     * @var Reactor
      */
     protected $reactor;
 
     /**
      * CLI instance.
      *
-     * @var \Dasbit\Cli
+     * @var Cli
      */
     protected $cli;
+    
+    /**
+     * Plugin manager.
+     * 
+     * @var PluginManager
+     */
+    protected $pluginManager;
 
     /**
      * Address of the IRC server.
@@ -100,40 +111,51 @@ class Client
     /**
      * Instantiate a new IRC client.
      *
-     * @param \Dasbit\Reactor $reactor
-     * @param \Dasbit\Cli     $cli
+     * @param  Reactor       $reactor
+     * @param  Cli           $cli
+     * @param  PluginManager $pluginManager
+     * @return void
+     */
+    public function __construct(Reactor $reactor, Cli $cli, PluginManager $pluginManager)
+    {
+        $pluginManager->setClient($this);
+        
+        $this->reactor       = $reactor;
+        $this->cli           = $cli;
+        $this->pluginManager = $pluginManager;
+        $this->ctcp          = new Ctcp();
+    }
+
+    /**
+     * Connect to the server.
+     *
      * @param string          $hostname
      * @param integer         $port
      * @param string          $nickname
      * @param string          $username
      * @return void
      */
-    public function __construct(\Dasbit\Reactor $reactor, \Dasbit\Cli $cli, $hostname, $port, $nickname, $username)
+    public function connect($hostname = null, $port = null, $nickname = null, $username = null)
     {
-        $address = gethostbyname($hostname);
+        if ($hostname !== null && $port !== null && $nickname !== null && $username !== null) {
+            $address = gethostbyname($hostname);
 
-        if (ip2long($address) === false || ($address === gethostbyaddr($address)
-            && preg_match("#.*\.[a-zA-Z]{2,3}$#", $hostname) === 0) )
-        {
-           throw new InvalidArgumentException('Hostname is not valid');
+            if (ip2long($address) === false || ($address === gethostbyaddr($address)
+                && preg_match("#.*\.[a-zA-Z]{2,3}$#", $hostname) === 0) )
+            {
+               throw new InvalidArgumentException('Hostname is not valid');
+            }
+        
+            $this->address       = $address;
+            $this->port          = $port;
+            $this->nickname      = $nickname;
+            $this->username      = $username;
         }
-
-        $this->reactor  = $reactor;
-        $this->cli      = $cli;
-        $this->address  = $address;
-        $this->port     = $port;
-        $this->nickname = $nickname;
-        $this->username = $username;
-        $this->ctcp     = new Ctcp();
-    }
-
-    /**
-     * Connect to the server.
-     *
-     * @return void
-     */
-    public function connect()
-    {
+        
+        if ($this->address === null) {
+            throw new UnexpectedValueException('Connection parameters have not been set');
+        }
+        
         while (!$this->connected) {
             $this->cli->clientOutput(sprintf('Connecting to %s port %d...', $this->address, $this->port));
 
@@ -285,8 +307,27 @@ class Client
         if (is_numeric($data['command'])) {
             if ($data['command'] > 400) {
                 // Error
+                switch ($data['command']) {
+                    case 403:
+                        $this->pluginManager->triggerHook('error.no-such-channel', $data['params'][0]);
+                        break;
+                    
+                    case 405:
+                        $this->pluginManager->triggerHook('error.too-many-channels', $data['params'][0]);
+                        break;
+                    
+                    case 433:
+                        $this->pluginManager->triggerHook('error.nickname-in-use', $data['params'][0]);
+                        break;
+                }
             } else {
-                // Command
+                // Reply
+                switch ($data['command']) {
+                    case 422:
+                    case 376:
+                        $this->pluginManager->triggerHook('reply.connected');
+                        break;
+                }
             }
         } else {
             switch ($data['command']) {
@@ -319,7 +360,13 @@ class Client
 
         foreach ($parts as $part) {
             if (is_string($part)) {
-                
+                if (substr($message, 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
+                    $command = substr($part, strlen($this->commandPrefix), strpos($part, ' '));
+                    
+                    if (isset($this->commands[$command])) {
+                        call_user_func($this->commands[$command]);
+                    }
+                }
             } else {
                 $this->handleCtcpRequest($data['nick'], $part);
             }
@@ -513,5 +560,15 @@ class Client
         }
 
         return $data;
+    }
+    
+    /**
+     * Get the reactor the client is attached to.
+     * 
+     * @return Reactor
+     */
+    public function getReactor()
+    {
+        return $this->reactor;
     }
 }

@@ -28,16 +28,16 @@ namespace Dasbit\Plugin;
 abstract class Plugin
 {
     /**
-     * Client the plugin is attached to.
+     * Mananger the plugin is attached to.
      * 
-     * @var \Dasbit\Irc\Client
+     * @var Manager
      */
-    protected $client;
+    protected $manager;
     
     /**
      * Database adapter.
      * 
-     * @var \Dasbit\Db
+     * @var \Dasbit\Database
      */
     protected $db;
     
@@ -53,15 +53,16 @@ abstract class Plugin
     /**
      * Instantiate the plugin.
      * 
-     * @param  \Dasbit\Irc\Client $client
+     * @param  Manager $manager
+     * @param  string  $databasePath
      * @return void
      */
-    public function __construct(\Dasbit\Irc\Client $client)
+    public function __construct(Manager $manager, $databasePath)
     {
-        $this->client = $client;
+        $this->manager = $manager;
         
         if ($this->dbSchema !== null) {           
-            $this->db = new \Dasbit\Db($this->getName(), $this->dbSchema);
+            $this->db = new \Dasbit\Database($databasePath . '/' . $this->getName() . '.db', $this->dbSchema);
         }
         
         $this->init();
@@ -74,7 +75,7 @@ abstract class Plugin
      */
     public function getName()
     {
-        return array_pop(explode('\\', get_class($this)));
+        return strtolower(array_pop(explode('\\', get_class($this))));
     }
     
     /**
@@ -93,7 +94,7 @@ abstract class Plugin
      */
     protected function registerCommand($command, $method)
     {
-        $this->client->registerCommand($command, array($this, $method));
+        $this->manager->registerCommand($command, array($this, $method));
         return $this;
     }
     
@@ -106,7 +107,7 @@ abstract class Plugin
      */
     protected function registerTimeout($seconds, $method)
     {
-        $this->client->registerTimeout($seconds, array($this, $method));
+        $this->manager->registerTimeout($seconds, array($this, $method));
         return $this;
     }
     
@@ -119,7 +120,7 @@ abstract class Plugin
      */
     protected function registerHook($hook, $method)
     {
-        $this->client->registerHook($hook, array($this, $method));
+        $this->manager->registerHook($hook, array($this, $method));
         return $this;
     }
 }

@@ -25,15 +25,8 @@ namespace Dasbit;
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
-class Db
+class Database
 {
-    /**
-     * Path where database files are stored.
-     *  
-     * @var string
-     */
-    protected static $databasePath;
-    
     /**
      * Database adapter.
      * 
@@ -44,14 +37,13 @@ class Db
     /**
      * Load a database.
      * 
-     * @param  string $name
+     * @param  string $path
      * @param  array  $schema 
      * @return void
      */
-    public function __construct($name, array $schema)
+    public function __construct($path, array $schema)
     {
         // Create or read the databse file
-        $path          = self::$databasePath . '/' . $name . '.sqlite';
         $this->adapter = new \PDO('sqlite://' . $path);
         
         // Get all existent tables
@@ -114,22 +106,6 @@ class Db
                 }
             }
         }
-    }
-    
-    /**
-     * Set the database path.
-     * 
-     * @param string $path 
-     */
-    public static function setDatabasePath($path)
-    {
-        if (!is_dir($path)) {
-            throw new RuntimeException(sprintf('"%s" is not a directory', $path));
-        } elseif (!is_writable($path)) {
-            throw new RuntimeException(sprintf('"%s" is not writable', $path));
-        }
-        
-        self::$databasePath = $path;
     }
     
     /**
