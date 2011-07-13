@@ -25,7 +25,7 @@ namespace Dasbit\Plugin;
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
-abstract class Plugin
+abstract class AbstractPlugin
 {
     /**
      * Mananger the plugin is attached to.

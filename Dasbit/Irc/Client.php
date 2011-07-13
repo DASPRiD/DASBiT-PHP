@@ -360,13 +360,7 @@ class Client
 
         foreach ($parts as $part) {
             if (is_string($part)) {
-                if (substr($message, 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
-                    $command = substr($part, strlen($this->commandPrefix), strpos($part, ' '));
-                    
-                    if (isset($this->commands[$command])) {
-                        call_user_func($this->commands[$command]);
-                    }
-                }
+                $this->pluginManager->checkForCommand(new PrivMsg($data, $part));
             } else {
                 $this->handleCtcpRequest($data['nick'], $part);
             }

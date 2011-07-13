@@ -17,8 +17,8 @@
  */
 namespace Dasbit\Plugin;
 
-use \Dasbit\Plugin\Plugin,
-    \Dasbit\Irc\Command;
+use \Dasbit\Plugin\AbstractPlugin,
+    \Dasbit\Irc\PrivMsg;
 
 /**
  * Channel plugin.
@@ -28,7 +28,7 @@ use \Dasbit\Plugin\Plugin,
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
-class Channel extends Plugin
+class Channels extends AbstractPlugin
 {
     /**
      * $dbSchema: defined by Plugin.
@@ -62,10 +62,10 @@ class Channel extends Plugin
     /**
      * Join a channel.
      * 
-     * @param  Command $command
+     * @param  PrivMsg $privMsg
      * @return void
      */
-    public function join(Command $command)
+    public function join(PrivMsg $privMsg)
     {
         $this->client->join($command->getWord(0), $command->getWord(1));
         
@@ -78,10 +78,10 @@ class Channel extends Plugin
     /**
      * Part a channel.
      * 
-     * @param  Command $command
+     * @param  PrivMsg $privMsg
      * @return void
      */
-    public function part(Command $command)
+    public function part(PrivMsg $privMsg)
     {
         $this->client->part($command->getWord(0));
         

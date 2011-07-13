@@ -27,5 +27,51 @@ namespace Dasbit\Irc;
  */
 class PrivMsg
 {
-
+    /**
+     * Message data.
+     * 
+     * @var array
+     */
+    protected $data;
+    
+    /**
+     * Message content.
+     * 
+     * @var string
+     */
+    protected $message;
+    
+    /**
+     * Create a new private message.
+     * 
+     * @param  array  $data
+     * @param  string $message
+     * @return void
+     */
+    public function __construct(array $data, $message)
+    {
+        $this->data    = $data;
+        $this->message = $message;
+    }
+    
+    /**
+     * Get the message content.
+     * 
+     * @return string
+     */
+    public function getMessage()
+    {
+        return $this->message;
+    }
+    
+    /**
+     * Set the message content.
+     * 
+     * @param  string $message
+     * @return void
+     */
+    public function setMessage($message)
+    {
+        $this->message = $message;
+    }
 }

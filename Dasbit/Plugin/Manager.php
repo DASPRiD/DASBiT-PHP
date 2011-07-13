@@ -38,6 +38,13 @@ class Manager
     protected $client;
     
     /**
+     * Prefix for commands.
+     * 
+     * @var string
+     */
+    protected $commandPrefix;
+    
+    /**
      * Registered plugins.
      * 
      * @var array
@@ -63,11 +70,14 @@ class Manager
      * 
      * @param  string $pluginsPath 
      * @param  string $databasePath
+     * @param  stirng $commandPrefix
      * @return void
      */
-    public function __construct($pluginsPath, $databasePath)
-    {       
-        $this->registerPlugin(new Core($this, $databasePath . '/core.db'), true);
+    public function __construct($pluginsPath, $databasePath, $commandPrefix)
+    {
+        $this->commandPrefix = $commandPrefix;
+        
+        $this->registerPlugin(new Plugins($this, $databasePath . '/plugins.db'), true);
         
         if (!is_dir($pluginsPath)) {
             throw new InvalidArgumentException(sprintf('"%s" is not a directory', $pluginsPath));
@@ -107,14 +117,14 @@ class Manager
      * @param  boolean $active
      * @return Manager
      */
-    public function registerPlugin(Plugin $plugin, $active = null)
+    public function registerPlugin(AbstractPlugin $plugin, $active = null)
     {
         if (isset($this->plugins[$plugin->getName()])) {
             throw new RuntimeException(sprintf('Plugin with name "%s" was already registered', $plugin->getName()));
         }
         
         if ($active === null) {
-            $active = $this->getPlugin('core')->isPluginActive($plugin->getName());
+            $active = $this->getPlugin('plugins')->isPluginActive($plugin->getName());
         }
         
         $this->plugins[$plugin->getName()] = array(
@@ -140,7 +150,7 @@ class Manager
      * Get a specific plugin.
      * 
      * @param  string $pluginName 
-     * @return Plugin
+     * @return AbstractPlugin
      */
     public function getPlugin($pluginName)
     {
@@ -253,6 +263,14 @@ class Manager
      */
     public function checkForCommand(PrivMsg $privMsg)
     {
-        
+        if (substr($privMsg->getMessage(), 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
+            $command = substr($privMsg->getMessage(), strlen($this->commandPrefix), strpos($privMsg->getMessage(), ' '));
+
+            if (isset($this->commands[$command])) {
+                $privMsg->setMessage(substr($privMsg->getMessage(), strlen($this->commandPrefix) + strlen($command) + 1));
+                
+                call_user_func($this->commands[$command], $privMsg);
+            }
+        }
     }
 }
