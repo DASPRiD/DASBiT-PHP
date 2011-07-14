@@ -298,7 +298,7 @@ class Client
             
             $this->sendPrivMsg($target, $message);
         } elseif ($mode === self::REPLY_NOTICE) {
-            $this->sendNotice($source->getSource(), $message);
+            $this->sendNotice($source->getNick(), $message);
         }
     }
 

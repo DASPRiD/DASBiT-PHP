@@ -144,7 +144,7 @@ class Database
         $values = array();
         
         foreach ($columns as $key => $value) {
-            $values[] = $key . ' => ' . $this->quote($value);
+            $values[] = $key . ' = ' . $this->quote($value);
         }
         
         return $this->execute(

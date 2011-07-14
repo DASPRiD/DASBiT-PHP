@@ -67,7 +67,7 @@ class Channels extends AbstractPlugin
      */
     public function join(PrivMsg $privMsg)
     {
-        $this->client->join($command->getWord(0), $command->getWord(1));
+        $this->manager->getClient()->join($command->getWord(0), $command->getWord(1));
         
         $this->db->insert('channels', array(
             'channel_name' => $command->getWord(0),
@@ -83,7 +83,7 @@ class Channels extends AbstractPlugin
      */
     public function part(PrivMsg $privMsg)
     {
-        $this->client->part($command->getWord(0));
+        $this->manager->getClient()->part($command->getWord(0));
         
         $this->db->delete('channels', sprintf("channel_name = %s", $this->db->quote($command->getWord(0))));
     }
@@ -104,7 +104,7 @@ class Channels extends AbstractPlugin
         ");
         
         foreach ($channels as $channel) {
-            $this->client->join($channel['channel_name'], $channel['channel_key']);
+            $this->manager->getClient()->join($channel['channel_name'], $channel['channel_key']);
         }
     }
     

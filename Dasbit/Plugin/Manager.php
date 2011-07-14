@@ -18,7 +18,7 @@
 namespace Dasbit\Plugin;
 
 use \Dasbit\Irc\Client,
-    \Dasbit\Irc\Command;
+    \Dasbit\Irc\PrivMsg;
 
 /**
  * Plugin manager.
@@ -256,12 +256,12 @@ class Manager
     public function checkForCommand(PrivMsg $privMsg)
     {
         if (substr($privMsg->getMessage(), 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
-            $command = substr($privMsg->getMessage(), strlen($this->commandPrefix), strpos($privMsg->getMessage(), ' '));
+            $command = substr($privMsg->getMessage(), strlen($this->commandPrefix), strpos($privMsg->getMessage(), ' ') - strlen($this->commandPrefix));
 
-            if (isset($this->commands[$command])) {
+            if (isset($this->commands[$command]) && $this->plugins[$this->commands[$command]['pluginName']]['enabled']) {
                 $privMsg->setMessage(substr($privMsg->getMessage(), strlen($this->commandPrefix) + strlen($command) + 1));
                 
-                call_user_func($this->commands[$command], $privMsg);
+                call_user_func($this->commands[$command]['callback'], $privMsg);
             }
         }
     }

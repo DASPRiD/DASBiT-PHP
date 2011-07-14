@@ -61,10 +61,10 @@ class Plugins extends AbstractPlugin
      * @param  PrivMsg $privMsg
      * @return void
      */
-    protected function switchEnabled(PrivMsg $privMsg)
+    public function switchEnabled(PrivMsg $privMsg)
     {
-        $enable     = ($command->getWord(0) === 'enable' ? true : false);
-        $pluginName = strtolower($command->getWord(1));
+        $enable     = ($privMsg->getWord(0) === 'enable' ? true : false);
+        $pluginName = strtolower($privMsg->getWord(1));
         
         if ($pluginName === 'core') {
             $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" cannot be %s', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);

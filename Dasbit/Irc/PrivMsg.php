@@ -49,6 +49,13 @@ class PrivMsg
     protected $message;
     
     /**
+     * Splitted message.
+     * 
+     * @var array
+     */
+    protected $messageSplit;
+    
+    /**
      * Create a new private message.
      * 
      * @param  array  $data
@@ -60,7 +67,8 @@ class PrivMsg
     {
         $this->data    = $data;
         $this->target  = $target;
-        $this->message = $message;
+        
+        $this->setMessage($message);
     }
     
     /**
@@ -121,6 +129,22 @@ class PrivMsg
      */
     public function setMessage($message)
     {
-        $this->message = $message;
+        $this->message      = $message;
+        $this->messageSplit = explode(' ', $message);
+    }
+    
+    /**
+     * Get a specific word.
+     * 
+     * @param  integer $index
+     * @return string
+     */
+    public function getWord($index)
+    {
+        if (isset($this->messageSplit[$index])) {
+            return $this->messageSplit[$index];
+        }
+        
+        return null;
     }
 }
