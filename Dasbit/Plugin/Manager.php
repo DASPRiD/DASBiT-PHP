@@ -77,7 +77,7 @@ class Manager
     {
         $this->commandPrefix = $commandPrefix;
         
-        $this->registerPlugin(new Plugins($this, $databasePath . '/plugins.db'), true);
+        $this->registerPlugin(new Plugins($this, $databasePath), true);
         
         if (!is_dir($pluginsPath)) {
             throw new InvalidArgumentException(sprintf('"%s" is not a directory', $pluginsPath));
@@ -86,13 +86,13 @@ class Manager
         $iterator = new \DirectoryIterator($pluginsPath);
         
         foreach ($iterator as $fileInfo) {
-            if (!$fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
+            if (!$fileInfo->isFile() || !preg_match('(\.php$)', $fileInfo->getFilename())) {
                 continue;
             }
             
             $pluginName = '\\Plugin\\' . $fileInfo->getBasename('.php');
             include $pluginsPath . '/' . $fileInfo->getFilename();
-            $this->registerPlugin(new $pluginName($databasePath));
+            $this->registerPlugin(new $pluginName($this, $databasePath));
         }
     }
     
@@ -110,26 +110,26 @@ class Manager
     /**
      * Register a plugin.
      * 
-     * If $active is set to null, it will be auto-discovered by the original
+     * If $enabled is set to null, it will be auto-discovered by the original
      * setting, or if not found, set to false.
      * 
      * @param  Plugin  $plugin
-     * @param  boolean $active
+     * @param  boolean $enabled
      * @return Manager
      */
-    public function registerPlugin(AbstractPlugin $plugin, $active = null)
+    public function registerPlugin(AbstractPlugin $plugin, $enabled = null)
     {
         if (isset($this->plugins[$plugin->getName()])) {
             throw new RuntimeException(sprintf('Plugin with name "%s" was already registered', $plugin->getName()));
         }
         
-        if ($active === null) {
-            $active = $this->getPlugin('plugins')->isPluginActive($plugin->getName());
+        if ($enabled === null) {
+            $enabled = $this->getPlugin('plugins')->isEnabled($plugin->getName());
         }
         
         $this->plugins[$plugin->getName()] = array(
-            'plugin'   => $plugin,
-            'active'   => $active
+            'plugin'  => $plugin,
+            'enabled' => $enabled
         );
         
         return $this;
@@ -158,7 +158,7 @@ class Manager
             return null;
         }
         
-        return $this->plugins[$pluginName];
+        return $this->plugins[$pluginName]['plugin'];
     }
     
     /**
@@ -183,11 +183,7 @@ class Manager
      * @return void
      */
     public function registerCommand($pluginName, $command, $callback)
-    {
-        if (!isset($this->plugins[$pluginName])) {
-            throw new RuntimeException(sprintf('Plugin with name "%s" was not registered', $pluginName));
-        }
-        
+    {       
         if (is_string($command)) {
             $command = array($command);
         }
@@ -209,10 +205,6 @@ class Manager
      */
     public function registerHook($pluginName, $hook, $callback)
     {
-        if (!isset($this->plugins[$pluginName])) {
-            throw new RuntimeException(sprintf('Plugin with name "%s" was not registered', $pluginName));
-        }
-        
         if (!isset($this->hooks[$hook])) {
             $this->hooks[$hook] = array();
         }
@@ -249,7 +241,7 @@ class Manager
         }
         
         foreach ($this->hooks[$hook] as $hookData) {
-            if ($this->plugins[$hookData['pluginName']]['active']) {
+            if ($this->plugins[$hookData['pluginName']]['enabled']) {
                 call_user_func($hookData['callback'], $hook, $data);
             }
         }

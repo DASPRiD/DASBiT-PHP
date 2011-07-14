@@ -32,6 +32,12 @@ use \Dasbit\Reactor,
 class Client
 {
     /**
+     * Reply constants.
+     */
+    const REPLY_NORMAL = 'normal';
+    const REPLY_NOTICE = 'notice';
+    
+    /**
      * Reactor instance.
      * 
      * @var Reactor
@@ -65,7 +71,7 @@ class Client
      * @var string
      */
     protected $port;
-
+   
     /**
      * Nickname for the client.
      *
@@ -79,6 +85,13 @@ class Client
      * @var string
      */
     protected $username;
+    
+    /**
+     * Current nickname.
+     * 
+     * @var string
+     */
+    protected $currentNickname;
 
     /**
      * Whether the client is connected.
@@ -166,6 +179,11 @@ class Client
             }
 
             $this->connected = @socket_connect($this->socket, $this->address, $this->port);
+            
+            if (!$this->connected) {
+                $this->cli->clientOutput(sprintf('Could not connect, waiting 5 seconds...', $this->address, $this->port));
+                sleep(5);
+            }
         }
 
         if (@socket_set_nonblock($this->socket) === false) {
@@ -178,6 +196,8 @@ class Client
 
         $this->send('NICK', $this->nickname);
         $this->send('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
+        
+        $this->currentNickname = $this->nickname;
     }
 
     /**
@@ -257,6 +277,29 @@ class Client
     public function quit()
     {
         $this->send('QUIT');
+    }
+    
+    /**
+     * Reply to a private message.
+     * 
+     * @param  PrivMsg $source
+     * @param  string  $message
+     * @param  string  $mode 
+     * @return void
+     */
+    public function reply(PrivMsg $source, $message, $mode = self::REPLY_NORMAL)
+    {
+        if ($mode === self::REPLY_NORMAL) {
+            if ($source->getTarget() === $this->currentNickname) {
+                $target = $source->getNick();
+            } else {
+                $target = $source->getTarget();
+            }
+            
+            $this->sendPrivMsg($target, $message);
+        } elseif ($mode === self::REPLY_NOTICE) {
+            $this->sendNotice($source->getSource(), $message);
+        }
     }
 
     /**
@@ -360,7 +403,7 @@ class Client
 
         foreach ($parts as $part) {
             if (is_string($part)) {
-                $this->pluginManager->checkForCommand(new PrivMsg($data, $part));
+                $this->pluginManager->checkForCommand(new PrivMsg($data, $target, $part));
             } else {
                 $this->handleCtcpRequest($data['nick'], $part);
             }
@@ -564,5 +607,25 @@ class Client
     public function getReactor()
     {
         return $this->reactor;
+    }
+    
+    /**
+     * Get defined nickname.
+     * 
+     * @return string
+     */
+    public function getNickname()
+    {
+        return $this->nickname;
+    }
+    
+    /**
+     * Get currently assigned nickname.
+     * 
+     * @return string
+     */
+    public function getCurrentNickname()
+    {
+        return $this->currentNickname;
     }
 }

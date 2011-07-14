@@ -35,6 +35,13 @@ class PrivMsg
     protected $data;
     
     /**
+     * Message target.
+     * 
+     * @var string
+     */
+    protected $target;
+    
+    /**
      * Message content.
      * 
      * @var string
@@ -45,13 +52,55 @@ class PrivMsg
      * Create a new private message.
      * 
      * @param  array  $data
+     * @param  string $target
      * @param  string $message
      * @return void
      */
-    public function __construct(array $data, $message)
+    public function __construct(array $data, $target, $message)
     {
         $this->data    = $data;
+        $this->target  = $target;
         $this->message = $message;
+    }
+    
+    /**
+     * Get the nick.
+     * 
+     * @return string
+     */
+    public function getNick()
+    {
+        return $this->data['nick'];
+    }
+    
+    /**
+     * Get the user.
+     * 
+     * @return string
+     */
+    public function getUser()
+    {
+        return $this->data['user'];
+    }
+    
+    /**
+     * Get the host.
+     * 
+     * @return string
+     */
+    public function getHost()
+    {
+        return $this->data['host'];
+    }
+    
+    /**
+     * Get the message target.
+     * 
+     * @return string
+     */
+    public function getTarget()
+    {
+        return $this->target;
     }
     
     /**

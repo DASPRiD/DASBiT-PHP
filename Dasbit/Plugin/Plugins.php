@@ -17,17 +17,18 @@
  */
 namespace Dasbit\Plugin;
 
-use \Dasbit\Irc\PrivMsg;
+use \Dasbit\Irc\Client,
+    \Dasbit\Irc\PrivMsg;
 
 /**
- * Core plugin.
+ * Plugins plugin.
  *
  * @category   DASBiT
  * @package    Dasbit_Plugin
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
-class Plugin extends AbstractPlugin
+class Plugins extends AbstractPlugin
 {
     /**
      * $dbSchema: defined by Plugin.
@@ -37,8 +38,8 @@ class Plugin extends AbstractPlugin
      */
     protected $dbSchema = array(
         'plugins' => array(
-            'plugin_id'     => 'INTEGER PRIMARY KEY',
-            'plugin_name'   => 'TEXT',
+            'plugin_id'      => 'INTEGER PRIMARY KEY',
+            'plugin_name'    => 'TEXT',
             'plugin_enabled' => 'INTEGER'
         )
     );
@@ -66,15 +67,15 @@ class Plugin extends AbstractPlugin
         $pluginName = strtolower($command->getWord(1));
         
         if ($pluginName === 'core') {
-            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" cannot be %s', $pluginName, ($enable ? 'enabled' : 'disabled')), 'notice');
+            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" cannot be %s', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
             return;
         } elseif (!$this->manager->hasPlugin($pluginName)) {
-            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" does not exist', $pluginName), 'notice');
+            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" does not exist', $pluginName), Client::REPLY_NOTICE);
             return;
         }
                
         $row = $this->db->fetchOne(sprintf("
-            SELECT plugin_active
+            SELECT plugin_enabled
             FROM plugins
             WHERE plugin_name = %s
         ", $this->db->quote($pluginName)));
@@ -82,31 +83,31 @@ class Plugin extends AbstractPlugin
         if ($row === false) {
             $this->db->insert('plugins', array(
                 'plugin_name'   => $pluginName,
-                'plugin_active' => ($active ? 1 : 0)
+                'plugin_enabled' => ($enable ? 1 : 0)
             ));
         } else {
             $this->db->update('plugins', array(
                 'plugin_name'   => $pluginName,
-                'plugin_active' => ($active ? 1 : 0)
+                'plugin_enabled' => ($enable ? 1 : 0)
             ), sprintf("plugin_name = %s", $this->db->quote($pluginName)));
         }
         
-        $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" was %s', $pluginName, ($enable ? 'enabled' : 'disabled')));
+        $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" was %s', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
     }
     
     /**
-     * Check if a plugin is marked as active.
+     * Check if a plugin is marked as enabled.
      * 
      * @param  string $pluginName
      * @return boolean
      */
-    public function isPluginEnabled($pluginName)
+    public function isEnabled($pluginName)
     {
         $row = $this->db->fetchOne(sprintf("
-            SELECT plugin_active
+            SELECT plugin_enabled
             FROM plugins
             WHERE plugin_name = %s
-        ", $this->db->quote($plugin->getName())));
+        ", $this->db->quote($pluginName)));
 
         if ($row === false) {
             return false;

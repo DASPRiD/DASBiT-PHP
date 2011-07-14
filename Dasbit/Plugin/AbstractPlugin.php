@@ -60,7 +60,7 @@ abstract class AbstractPlugin
     public function __construct(Manager $manager, $databasePath)
     {
         $this->manager = $manager;
-        
+
         if ($this->dbSchema !== null) {           
             $this->db = new \Dasbit\Database($databasePath . '/' . $this->getName() . '.db', $this->dbSchema);
         }
@@ -94,7 +94,7 @@ abstract class AbstractPlugin
      */
     protected function registerCommand($command, $method)
     {
-        $this->manager->registerCommand($command, array($this, $method));
+        $this->manager->registerCommand($this->getName(), $command, array($this, $method));
         return $this;
     }
     
@@ -120,7 +120,7 @@ abstract class AbstractPlugin
      */
     protected function registerHook($hook, $method)
     {
-        $this->manager->registerHook($hook, array($this, $method));
+        $this->manager->registerHook($this->getName(), $hook, array($this, $method));
         return $this;
     }
 }

@@ -23,10 +23,11 @@ $loader = new \Dasbit\Loader(null, __DIR__);
 $loader->register();
 
 // Load the config
-$hostname     = 'chat.freenode.net';
-$port         = 6667;
-$nickname     = 'DASBiT';
-$username     = 'dasbit';
+$hostname      = 'chat.freenode.net';
+$port          = 6667;
+$nickname      = 'DASBiT';
+$username      = 'dasbit';
+$commandPrefix = '!';
 
 // Configure all components
 $databasePath  = __DIR__ . '/data';
@@ -34,11 +35,8 @@ $pluginsPath   = __DIR__ . '/plugins';
 
 $reactor       = new \Dasbit\Reactor();
 $cli           = new \Dasbit\Cli();
-$pluginManager = new \Dasbit\Plugin\Manager($pluginsPath, $databasePath . '/manager.sqlite');
+$pluginManager = new \Dasbit\Plugin\Manager($pluginsPath, $databasePath, $commandPrefix);
 $client        = new \Dasbit\Irc\Client($reactor, $cli, $pluginManager);
-
-// Load all plugins
-$pluginManager->loadPlugins($pluginsPath, $databasePath);
 
 // Connect the client and start the reactor
 $client->connect($hostname, $port, $nickname, $username);

@@ -15,7 +15,7 @@
 /**
  * @namespace
  */
-namespace Dasbit\Plugin;
+namespace Plugin;
 
 use \Dasbit\Plugin\AbstractPlugin,
     \Dasbit\Irc\PrivMsg;

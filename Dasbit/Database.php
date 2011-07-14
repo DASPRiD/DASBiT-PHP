@@ -45,6 +45,7 @@ class Database
     {
         // Create or read the databse file
         $this->adapter = new \PDO('sqlite://' . $path);
+        $this->adapter->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         
         // Get all existent tables
         $rows           = $this->fetchAll("SELECT name, sql FROM sqlite_master WHERE type = 'table'");
@@ -70,7 +71,7 @@ class Database
         }
         
         // Check for tables to insert or update
-        foreach ($tables as $tableName => $columns) {
+        foreach ($schema as $tableName => $columns) {
             if (!isset($existentTables[$tableName])) {
                 // Insert table
                 $columnStrings = array();
@@ -91,16 +92,16 @@ class Database
                 }
             }
         }
-        
+
         // Check for tables to delete
         foreach ($existentTables as $tableName => $columns) {
-           if (!isset($tables[$tableName])) {
-                // Delete table                
+            if (!isset($schema[$tableName])) {
+                // Delete table
                 $this->execute(sprintf('DROP TABLE %s', $tableName));
             } else {
                 // Check for columns to delete
                 foreach ($columns as $columnName => $type) {
-                    if (!isset($tables[$tableName][$columnName])) {
+                    if (!isset($schema[$tableName][$columnName])) {
                         throw new RuntimeException('A column was deleted in schema, which is not supported by SQLITE');
                     }
                 }

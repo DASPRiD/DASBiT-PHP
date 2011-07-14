@@ -15,7 +15,7 @@
 /**
  * @namespace
  */
-namespace Dasbit;
+namespace Dasbit\Plugin;
 
 /**
  * Runtime exception.

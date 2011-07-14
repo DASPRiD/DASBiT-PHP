@@ -15,7 +15,7 @@
 /**
  * @namespace
  */
-namespace Dasbit\Irc;
+namespace Dasbit\Plugin;
 
 /**
  * Invalid Argument exception.
