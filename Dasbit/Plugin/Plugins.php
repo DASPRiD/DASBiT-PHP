@@ -66,11 +66,11 @@ class Plugins extends AbstractPlugin
         $enable     = ($privMsg->getWord(0) === 'enable' ? true : false);
         $pluginName = strtolower($privMsg->getWord(1));
         
-        if ($pluginName === 'core') {
-            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" cannot be %s', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
+        if ($pluginName === 'plugins' || $pluginName === 'users') {
+            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" cannot be %s.', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
             return;
         } elseif (!$this->manager->hasPlugin($pluginName)) {
-            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" does not exist', $pluginName), Client::REPLY_NOTICE);
+            $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" does not exist.', $pluginName), Client::REPLY_NOTICE);
             return;
         }
                
@@ -92,7 +92,7 @@ class Plugins extends AbstractPlugin
             ), sprintf("plugin_name = %s", $this->db->quote($pluginName)));
         }
         
-        $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" was %s', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
+        $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" was %s.', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
     }
     
     /**

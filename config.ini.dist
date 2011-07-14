@@ -1,0 +1,8 @@
+[connection]
+hostname = chat.freenode.org
+port     = 6667
+nickname = DASBiT
+username = dasbit
+
+[client]
+commandPrefix = !

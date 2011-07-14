@@ -64,6 +64,13 @@ class Manager
      * @var array
      */
     protected $hooks = array();
+    
+    /**
+     * Registered triggers.
+     * 
+     * @var array
+     */
+    protected $triggers = array();
        
     /**
      * Load plugins from a directory.
@@ -78,6 +85,7 @@ class Manager
         $this->commandPrefix = $commandPrefix;
         
         $this->registerPlugin(new Plugins($this, $databasePath), true);
+        $this->registerPlugin(new Users($this, $databasePath), true);
         
         if (!is_dir($pluginsPath)) {
             throw new InvalidArgumentException(sprintf('"%s" is not a directory', $pluginsPath));
@@ -178,6 +186,7 @@ class Manager
     /**
      * Register a command.
      * 
+     * @param  string $pluginName
      * @param  mixed $command
      * @param  mixed $callback
      * @return void
@@ -199,6 +208,7 @@ class Manager
     /**
      * Register a hook.
      * 
+     * @param  string $pluginName
      * @param  string $hook
      * @param  mixed  $callback
      * @return void
@@ -210,6 +220,23 @@ class Manager
         }
         
         $this->hooks[$hook][] = array(
+            'pluginName' => $pluginName,
+            'callback'   => $callback
+        );
+    }
+    
+    /**
+     * Register a trigger.
+     * 
+     * @param  string $pluginName
+     * @param  string $pattern
+     * @param  mixed  $callback
+     * @return void
+     */
+    public function registerTrigger($pluginName, $pattern, $callback)
+    {
+        $this->triggers[] = array(
+            'pattern'    => $pattern,
             'pluginName' => $pluginName,
             'callback'   => $callback
         );
@@ -253,15 +280,28 @@ class Manager
      * @param  PrivMsg $privMsg
      * @return void
      */
-    public function checkForCommand(PrivMsg $privMsg)
+    public function checkMessage(PrivMsg $privMsg)
     {
-        if (substr($privMsg->getMessage(), 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
-            $command = substr($privMsg->getMessage(), strlen($this->commandPrefix), strpos($privMsg->getMessage(), ' ') - strlen($this->commandPrefix));
+        $message = $privMsg->getMessage();
+        
+        // Check for commands
+        if (substr($message, 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
+            $command = substr($message, strlen($this->commandPrefix), strpos($message, ' ') - strlen($this->commandPrefix));
 
             if (isset($this->commands[$command]) && $this->plugins[$this->commands[$command]['pluginName']]['enabled']) {
-                $privMsg->setMessage(substr($privMsg->getMessage(), strlen($this->commandPrefix) + strlen($command) + 1));
+                $privMsg->setMessage(substr($message, strlen($this->commandPrefix) + strlen($command) + 1));
                 
                 call_user_func($this->commands[$command]['callback'], $privMsg);
+                return;
+            }
+        }
+        
+        // Check for triggers
+        foreach ($this->triggers as $trigger) {
+            if ($this->plugins[$trigger['pluginName']]['enabled']) {
+                if (preg_match('(' . $trigger['pattern'] . ')', $message)) {
+                    call_user_func($trigger['callback'], $privMsg);
+                }
             }
         }
     }

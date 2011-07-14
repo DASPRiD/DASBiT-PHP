@@ -1,0 +1,27 @@
+DASBiT - A PHP-based IRC bot
+--------------------------------------------------------------------------------
+
+INSTALLATION
+------------
+Rename <config.ini.dist> to <config.ini>, change the config values and make the
+<data> directory writable.
+
+FIRST RUN
+---------
+Start the bot by typing "./dasbit". At start, none of the supplied plugins is
+enabled by default, so you have to enable them. First you have to become the
+bot master, so start a query with the bot and type "!master". This command only
+works once and will authenticate you with your NickServ username, so be sure to
+be identified with it. After you are authenticated, you can enable the different
+plugins with "!plugin enable <plugin-name>".
+
+PLUGINS
+-------
+The following plugins are available:
+
+channels: Joining and parting channels
+
+LICENSE
+-------
+The files in thios archive are released under the new BSD license that is
+bundled with this package in the file LICENSE.

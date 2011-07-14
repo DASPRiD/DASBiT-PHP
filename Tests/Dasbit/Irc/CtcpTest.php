@@ -20,10 +20,10 @@ namespace DasbitTest\Irc;
 use Dasbit\Irc\Ctcp;
 
 /**
- * IRC Client
+ * CTCP test.
  *
  * @category   DASBiT
- * @package    Dasbit_Irc
+ * @package    DasbitTest_Irc
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */

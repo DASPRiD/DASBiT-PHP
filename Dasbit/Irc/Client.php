@@ -403,7 +403,7 @@ class Client
 
         foreach ($parts as $part) {
             if (is_string($part)) {
-                $this->pluginManager->checkForCommand(new PrivMsg($data, $target, $part));
+                $this->pluginManager->checkMessage(new PrivMsg($data, $target, $part));
             } else {
                 $this->handleCtcpRequest($data['nick'], $part);
             }
@@ -418,7 +418,9 @@ class Client
      */
     protected function handleNotice(array $data)
     {
+        list($target, $message) = $data['params'];
         
+        $this->pluginManager->checkMessage(new Notice($data, $target, $message));
     }
 
     /**

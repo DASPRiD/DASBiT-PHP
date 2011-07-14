@@ -123,4 +123,17 @@ abstract class AbstractPlugin
         $this->manager->registerHook($this->getName(), $hook, array($this, $method));
         return $this;
     }
+    
+    /**
+     * Register a trigger.
+     * 
+     * @param  string $trigger
+     * @param  string $method
+     * @return Plugin
+     */
+    protected function registerTrigger($pattern, $method)
+    {
+        $this->manager->registerTrigger($this->getName(), $pattern, array($this, $method));
+        return $this;
+    }
 }

@@ -102,6 +102,14 @@ class PrivMsg
     }
     
     /**
+     * Get ident.
+     */
+    public function getIdent()
+    {
+        return $this->data['nick'] . '!' . $this->data['user'] . '@' . $this->data['host'];
+    }
+    
+    /**
      * Get the message target.
      * 
      * @return string
@@ -110,7 +118,7 @@ class PrivMsg
     {
         return $this->target;
     }
-    
+       
     /**
      * Get the message content.
      * 
