@@ -80,10 +80,10 @@ class Users extends AbstractPlugin
      */
     protected function init()
     {
-        $this->registerCommand('master', 'setMaster', '')
-             ->registerCommand('acl', 'setAcl', '')
-             ->registerTrigger('Information on [^ ]+ \(account [^\)]+\)', 'userInfoReceived')
-             ->registerTrigger('=[^ ]+ is not registered', 'userInfoReceived');
+        $this->registerCommand('master', 'setMaster')
+             ->registerCommand('acl', 'setAcl', 'users.acl')
+             ->registerHook('reply.end-of-whois', 'whoisReceivedHook')
+             ->registerHook('reply.whois-account', 'whoisReceivedHook');
     }
 
     /**
@@ -97,10 +97,10 @@ class Users extends AbstractPlugin
         $hasUsers = ($this->db->fetchOne("SELECT user_id FROM users") !== false);
         
         if ($hasUsers) {
-            $this->manager->getClient()->reply($privMsg, 'Master has already been set.');
+            $this->manager->getClient()->reply($privMsg, 'Master has already been set.', Client::REPLY_NOTICE);
             return;
         }
-        
+
         $this->execute(array($this, 'storeMaster'), $privMsg);
     }
     
@@ -127,6 +127,8 @@ class Users extends AbstractPlugin
             'user_name' => $this->idents[$privMsg->getIdent()],
             'user_acl'  => '*.*'
         ));
+        
+        $this->manager->getClient()->reply($privMsg, 'You are now the master.', Client::REPLY_NOTICE);
     }
     
     /**
@@ -137,13 +139,13 @@ class Users extends AbstractPlugin
      */
     public function storeAcl(PrivMsg $privMsg)
     {
-        if (!preg_match('(^([^ ]) ([+\-][^.]\.[^,] ?)+$)', $privMsg->getMessage(), $match)) {
+        if (!preg_match('(^([^ ]+) ([+\-]?[^.]+\.[^ ]+ ?)+$)', $privMsg->getMessage(), $match)) {
             $this->manager->getClient()->reply($privMsg, 'Invalid parameters for ACL.', Client::REPLY_NOTICE);
             return;
         }
         
         $username  = strtolower($match[1]);
-        $modifyAcl = explode(' ', $match[2]);
+        $modifyAcl = $match[2];
         
         $row = $this->db->fetchOne(sprintf("
             SELECT user_acl
@@ -172,19 +174,68 @@ class Users extends AbstractPlugin
     }
     
     /**
+     * Verify access to a command.
+     * 
+     * @param  mixed   $callback 
+     * @param  PrivMsg $privMsg
+     * @param  string  $restrict
+     * @return void
+     */
+    public function verifyAccess($callback, PrivMsg $privMsg, $restrict)
+    {
+        $this->execute(
+            array($this, 'userLoaded'),
+            $privMsg,
+            array(
+                'callback' => $callback,
+                'restrict' => $restrict
+            )
+        );
+    }
+    
+    /**
+     * Called after a user was loaded.
+     * 
+     * @param  PrivMsg $privMsg
+     * @param  array   $data
+     * @return void
+     */
+    public function userLoaded(PrivMsg $privMsg, array $data)
+    {
+        if (!isset($this->users[$this->idents[$privMsg->getIdent()]])) {
+            $row = $this->db->fetchOne(sprintf("
+                SELECT user_acl
+                FROM users
+                WHERE user_name = %s
+            ", $this->db->quote($this->idents[$privMsg->getIdent()])));
+            
+            $this->users[$this->idents[$privMsg->getIdent()]] = new Acl($row['user_acl']);
+        }
+        
+        $acl = $this->users[$this->idents[$privMsg->getIdent()]];
+        
+        if ($acl->isAllowed($data['restrict'])) {
+            call_user_func($data['callback'], $privMsg);
+        } else {
+            $this->manager->getClient()->reply($privMsg, 'You are not allowed to use this command.', Client::REPLY_NOTICE);
+        }
+    }
+    
+    /**
      * Execute a command.
      * 
      * @param  mixed   $callback
      * @param  PrivMsg $privMsg 
+     * @param  array   $data
      * @return void
      */
-    public function execute($callback, PrivMsg $privMsg)
+    public function execute($callback, PrivMsg $privMsg, array $data = null)
     {
         $ident = $privMsg->getIdent();
-        $nick  = $ident->getNick();
+        $nick  = $privMsg->getNick();
         
-        if (isset($this->idents[$ident])) {
-            call_user_func($callback, $privMsg);
+        if (isset($this->idents[$ident])) {           
+            call_user_func($callback, $privMsg, $data);
         } else {
             if (!isset($this->actionStack[$nick])) {
                 $this->actionStack[$nick] = array();
@@ -193,40 +244,44 @@ class Users extends AbstractPlugin
             $this->nicknames[$nick]     = $ident;
             $this->actionStack[$nick][] = array(
                 'callback' => $callback,
-                'privMsg'  => $privMsg
+                'privMsg'  => $privMsg,
+                'data'     => $data
             );
             
-            $this->manager->getClient()->sendPrivMsg('NickServ', 'INFO =' . $privMsg->getNick());
+            $this->manager->getClient()->send('WHOIS', $privMsg->getNick());
         }
     }
     
     /**
-     *
-     * @param PrivMsg $privMsg
-     * @return type 
+     * User whois received.
+     * 
+     * @param  string $hook
+     * @param  array  $data
+     * @return void
      */
-    public function userInfoReceived(PrivMsg $privMsg)
+    public function whoisReceivedHook($hook, array $data)
     {
-        if ($privMsg->getNick() !== 'NickServ') {
-            return;
-        }
-        
-        if (preg_match('(^Information on ([^ ]+) \(account ([^)]+)\)$)', $privMsg->getMessage(), $match)) {
-            if (!isset($nicknames[$match[1]])) {
-                return;
-            }
+        if ($hook === 'reply.whois-account') {
+            $nickname = $data[0];
+            $username = $data[1];
             
-            $this->idents[$nicknames[$match[1]]] = strtolower($match[2]);
-            
-            if (isset($this->actionStack[$match[1]])) {
-                foreach ($this->actionStack[$match[1]] as $action) {
-                    call_user_func($action['callback'], $action['privMsg']);
+            $this->idents[$this->nicknames[$nickname]] = strtolower($username);
+                       
+            if (isset($this->actionStack[$nickname])) {
+                foreach ($this->actionStack[$nickname] as $action) {
+                    call_user_func($action['callback'], $action['privMsg'], $action['data']);
                 }
                 
-                unset($this->actionStack[$match[1]]);
+                unset($this->actionStack[$nickname]);
             }
-        } elseif (preg_match('(^=([^ ]+) is not registered$)', $privMsg->getMessage(), $match)) {
-            $this->manager->getClient()->sentNotice($match[1], 'You are not identified with NickServ.');
+        } elseif ($hook === 'reply.end-of-whois') {
+            $nickname = $data[0];
+            
+            if (isset($this->actionStack[$nickname])) {
+                $this->manager->getClient()->sendNotice($nickname, 'You are not identified with NickServ.');
+                
+                unset($this->actionStack[$nickname]);
+            }
         }
     }
 }

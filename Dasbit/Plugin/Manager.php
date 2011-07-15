@@ -170,6 +170,32 @@ class Manager
     }
     
     /**
+     * Enable a plugin.
+     * 
+     * @param  string $pluginName 
+     * @return void
+     */
+    public function enablePlugin($pluginName)
+    {
+        if (isset($this->plugins[$pluginName])) {
+            $this->plugins[$pluginName]['enabled'] = true;
+        }
+    }
+    
+    /**
+     * Disable a plugin.
+     * 
+     * @param  string $pluginName 
+     * @return void
+     */
+    public function disablePlugin($pluginName)
+    {
+        if (isset($this->plugins[$pluginName])) {
+            $this->plugins[$pluginName]['enabled'] = false;
+        }
+    }
+    
+    /**
      * Get the client the manager is attached to.
      * 
      * @return Client
@@ -187,11 +213,12 @@ class Manager
      * Register a command.
      * 
      * @param  string $pluginName
-     * @param  mixed $command
-     * @param  mixed $callback
+     * @param  mixed  $command
+     * @param  mixed  $callback
+     * @param  string $restrict
      * @return void
      */
-    public function registerCommand($pluginName, $command, $callback)
+    public function registerCommand($pluginName, $command, $callback, $restrict = null)
     {       
         if (is_string($command)) {
             $command = array($command);
@@ -200,7 +227,8 @@ class Manager
         foreach ($command as $option) {
             $this->commands[$option] = array(
                 'pluginName' => $pluginName,
-                'callback'   => $callback
+                'callback'   => $callback,
+                'restrict'   => $restrict
             );
         }
     }
@@ -283,15 +311,19 @@ class Manager
     public function checkMessage(PrivMsg $privMsg)
     {
         $message = $privMsg->getMessage();
-        
+
         // Check for commands
         if (substr($message, 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
-            $command = substr($message, strlen($this->commandPrefix), strpos($message, ' ') - strlen($this->commandPrefix));
+            $command  = substr($message, strlen($this->commandPrefix), (strpos($message, ' ') ?: strlen($message)) - strlen($this->commandPrefix));
 
             if (isset($this->commands[$command]) && $this->plugins[$this->commands[$command]['pluginName']]['enabled']) {
                 $privMsg->setMessage(substr($message, strlen($this->commandPrefix) + strlen($command) + 1));
-                
-                call_user_func($this->commands[$command]['callback'], $privMsg);
+ 
+                if ($this->commands[$command]['restrict'] === null) {
+                    call_user_func($this->commands[$command]['callback'], $privMsg);
+                } else {
+                    $this->getPlugin('users')->verifyAccess($this->commands[$command]['callback'], $privMsg, $this->commands[$command]['restrict']);
+                }
                 return;
             }
         }

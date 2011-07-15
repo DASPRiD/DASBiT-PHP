@@ -90,11 +90,12 @@ abstract class AbstractPlugin
      * 
      * @param  mixed  $command
      * @param  string $method 
+     * @param  string $restrict
      * @return Plugin
      */
-    protected function registerCommand($command, $method)
+    protected function registerCommand($command, $method, $restrict = null)
     {
-        $this->manager->registerCommand($this->getName(), $command, array($this, $method));
+        $this->manager->registerCommand($this->getName(), $command, array($this, $method), $restrict);
         return $this;
     }
     

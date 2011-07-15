@@ -162,7 +162,7 @@ class Database
     public function delete($table, $where)
     {
         return $this->execute(
-            sprintf("DELETE FROM %s WHERE", $table, $where)
+            sprintf("DELETE FROM %s WHERE %s", $table, $where)
         );
     }
     

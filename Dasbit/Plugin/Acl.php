@@ -112,12 +112,13 @@ class Acl
     /**
      * Check if access to a given resource is allowed.
      * 
-     * @param  string $resource
-     * @param  string $privilege 
+     * @param  string $restrict
      * @return boolean
      */
-    public function isAllowed($resource, $privilege)
+    public function isAllowed($restrict)
     {
+        list($resource, $privilege) = explode('.', $restrict);
+        
         $allowed = false;
         
         if (isset($this->resources['*'])) {

@@ -401,6 +401,14 @@ class Client
                     case 376:
                         $this->pluginManager->triggerHook('reply.connected');
                         break;
+
+                    case 318:
+                        $this->pluginManager->triggerHook('reply.end-of-whois', array($data['params'][1]));
+                        break;
+                    
+                    case 330:
+                        $this->pluginManager->triggerHook('reply.whois-account', array($data['params'][1], $data['params'][2]));
+                        break;
                 }
             }
         } else {
@@ -604,7 +612,7 @@ class Client
             
             $this->sendPenalty -= $item['penalty'];
             
-            $this->cli->clientOutput($item['message']);
+            $this->cli->clientOutput(rtrim($item['message']));
             socket_write($this->socket, $item['message'], strlen($item['message']));
         }
 

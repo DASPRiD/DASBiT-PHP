@@ -52,7 +52,7 @@ class Plugins extends AbstractPlugin
      */
     protected function init()
     {
-        $this->registerCommand('plugin', 'switchEnabled', '(enable|disable) <plugin-name>');
+        $this->registerCommand('plugin', 'switchEnabled', 'plugins.switch');
     }
 
     /**
@@ -90,6 +90,12 @@ class Plugins extends AbstractPlugin
                 'plugin_name'   => $pluginName,
                 'plugin_enabled' => ($enable ? 1 : 0)
             ), sprintf("plugin_name = %s", $this->db->quote($pluginName)));
+        }
+        
+        if ($enable) {
+            $this->manager->enablePlugin($pluginName);
+        } else {
+            $this->manager->disablePlugin($pluginName);
         }
         
         $this->manager->getClient()->reply($privMsg, sprintf('Plugin "%s" was %s.', $pluginName, ($enable ? 'enabled' : 'disabled')), Client::REPLY_NOTICE);
