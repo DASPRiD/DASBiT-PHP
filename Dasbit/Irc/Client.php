@@ -120,6 +120,20 @@ class Client
      * @var Ctcp
      */
     protected $ctcp;
+    
+    /**
+     * Priority queue for sending.
+     * 
+     * @var PriorityQueue
+     */
+    protected $sendQueue;
+    
+    /**
+     * Send penalty.
+     * 
+     * @var integer
+     */
+    protected $sendPenalty = 10;
 
     /**
      * Instantiate a new IRC client.
@@ -137,6 +151,9 @@ class Client
         $this->cli           = $cli;
         $this->pluginManager = $pluginManager;
         $this->ctcp          = new Ctcp();
+        $this->sendQueue     = new PriorityQueue();
+        
+        $this->reactor->addTimeout(1, array($this, 'sendQueued'));
     }
 
     /**
@@ -502,11 +519,12 @@ class Client
     /**
      * Send data to the server.
      *
-     * @param  string $command
-     * @param  mixed  $params
+     * @param  string  $command
+     * @param  mixed   $params
+     * @param  integer $priority
      * @return void
      */
-    public function send($command, $params = '')
+    public function send($command, $params = '', $priority = 0, $penalty = 0)
     {
         $message = $command;
 
@@ -525,10 +543,41 @@ class Client
         } else {
             $message .= ' :' . $params;
         }
+        
+        $message .= "\r\n";
 
-        $this->cli->clientOutput($message);
+        $this->sendQueue->insert(
+            array(
+                'penalty' => floor((1 + (strlen($message) + 1) / 100) + $penalty),
+                'message' => $message
+            ),
+            $priority
+        );
+        
+        $this->sendQueued(false);
+    }
+    
+    /**
+     * Send queued data out to the server.
+     * 
+     * @return void
+     */
+    public function sendQueued($raisePenalty = true)
+    {
+        if ($raisePenalty) {
+            $this->sendPenalty = min(10, $this->sendPenalty + 1);
+        }
+        
+        while ($this->sendPenalty > 0 && count($this->sendQueue) > 0) {
+            $item = $this->sendQueue->extract();
+            
+            $this->sendPenalty -= $item['penalty'];
+            
+            $this->cli->clientOutput($item['message']);
+            socket_write($this->socket, $item['message'], strlen($item['message']));
+        }
 
-        $result = socket_write($this->socket, $message . "\r\n", strlen($message) + 2);
+        $this->reactor->addTimeout(1, array($this, 'sendQueued'));
     }
 
     /**
