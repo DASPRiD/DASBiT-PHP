@@ -122,6 +122,13 @@ class Client
     protected $ctcp;
     
     /**
+     * The last time data were received.
+     * 
+     * @var integer
+     */
+    protected $lastTimeReceived;
+    
+    /**
      * Priority queue for sending.
      * 
      * @var PriorityQueue
@@ -211,10 +218,13 @@ class Client
 
         $this->cli->clientOutput('Connected, authenticating...');
 
-        $this->send('NICK', $this->nickname);
-        $this->send('USER', array($this->username, $this->address, $this->address, 'DASBiT'));
+        $this->send('NICK', $this->nickname, 100, 0, 1);
+        $this->send('USER', array($this->username, $this->address, $this->address, 'DASBiT'), 100, 1);
         
         $this->currentNickname = $this->nickname;
+        
+        $this->lastTimeReceived = time();
+        $this->reactor->addTimeout(60, array($this, 'checkForLag'));
     }
 
     /**
@@ -224,6 +234,9 @@ class Client
      */
     public function disconnect()
     {
+        $this->sendQueue   = new PriorityQueue();
+        $this->sendPenalty = 10;
+        
         $this->reactor->removeReader($this->socket);
         socket_close($this->socket);
         $this->connected = false;
@@ -246,7 +259,7 @@ class Client
             $keys = array($keys);
         }
 
-        $this->send('JOIN', array(implode(',', $channels), implode(',', $keys)));
+        $this->send('JOIN', array(implode(',', $channels), implode(',', $keys)), 40, 1);
     }
 
     /**
@@ -261,7 +274,7 @@ class Client
             $channels = array($channels);
         }
 
-        $this->send('PART', array(implode(',', $channels)));
+        $this->send('PART', array(implode(',', $channels)), 41, 1);
     }
 
     /**
@@ -273,7 +286,7 @@ class Client
      */
     public function sendPrivMsg($target, $message)
     {
-        $this->send('PRIVMSG', array($target, $message));
+        $this->send('PRIVMSG', array($target, $message), 11, 0);
     }
 
     /**
@@ -285,7 +298,7 @@ class Client
      */
     public function sendNotice($target, $message)
     {
-        $this->send('NOTICE', array($target, $message));
+        $this->send('NOTICE', array($target, $message), 10, 0);
     }
 
     /**
@@ -293,7 +306,7 @@ class Client
      */
     public function quit()
     {
-        $this->send('QUIT');
+        $this->send('QUIT', '', 100, 0);
     }
     
     /**
@@ -334,8 +347,9 @@ class Client
                 $this->reactor->addTimeout(10, array($this, 'connect'));
                 return;
             }
-
-            $this->buffer .= $data;
+            
+            $this->lastTimeReceived  = time();
+            $this->buffer           .= $data;
 
             while (false !== ($pos = strpos($this->buffer, "\r\n"))) {
                 $message      = substr($this->buffer, 0, $pos + 2);
@@ -400,7 +414,7 @@ class Client
                     break;
 
                 case 'PING':
-                    $this->send('PONG', $data['params'][0]);
+                    $this->send('PONG', $data['params'][0], 110, 1);
                     break;
             }
         }
@@ -513,6 +527,23 @@ class Client
                         )
                     ))
                 );
+        }
+    }
+    
+    /**
+     * Check for lag.
+     * 
+     * @return void
+     */
+    public function checkForLag()
+    {
+        if ($this->connected && $this->lastTimeReceived + 300 <= time()) {
+            $this->cli->clientOutput('Maximum lag reached, reconnecting...');
+
+            $this->disconnect();
+            $this->connect();
+            
+            $this->reactor->addTimeout(60, array($this, 'checkForLag'));
         }
     }
 
