@@ -24,7 +24,7 @@ use \Dasbit\Plugin\AbstractPlugin,
  * Channel plugin.
  *
  * @category   DASBiT
- * @package    Dasbit_Plugin
+ * @package    Plugin
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */

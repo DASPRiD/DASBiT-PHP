@@ -21,7 +21,7 @@ namespace Dasbit;
  * Database access.
  *
  * @category   DASBiT
- * @package    Dasbit_Db
+ * @package    Dasbit_Database
  * @copyright  Copyright (c) 2010 Ben Scholzen (http://www.dasprids.de)
  * @license    New BSD License
  */
