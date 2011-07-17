@@ -58,12 +58,12 @@ class Reactor
             // Check for timeouts
             $minTimeout = null;
             
-            foreach ($this->timeouts as $index => $timeout) {
+            foreach ($this->timeouts as $ident => $timeout) {
                 $timeLeft = (time() - $timeout['time']);
                 
                 if ($timeLeft <= 0) {
-                    call_user_func($timeout['callback']);
-                    unset($this->timeouts[$index]);
+                    call_user_func($timeout['callback'], $ident);
+                    unset($this->timeouts[$ident]);
                 } else {
                     $minTimeout = min($minTimeout, $timeLeft);
                 }
@@ -87,7 +87,7 @@ class Reactor
      * Add a reading socket.
      *
      * @param  resource $socket
-     * @param  callback $callback
+     * @param  mixed    $callback
      * @return void
      */
     public function addReader($socket, $callback)
@@ -117,15 +117,32 @@ class Reactor
     /**
      * Add a timeout callback.
      *
-     * @param  integer  $seconds
-     * @param  callback $callback
-     * @return void
+     * @param  integer $seconds
+     * @param  mixed   $callback
+     * @return string
      */
     public function addTimeout($seconds, $callback)
     {
-        $this->timeouts[] = array(
+        $ident = sha1(uniqid());
+        
+        $this->timeouts[$ident] = array(
             'time'     => (time() + $seconds),
             'callback' => $callback
         );
+        
+        return $ident;
+    }
+    
+    /**
+     * Remove a timeout.
+     * 
+     * @param  string $ident 
+     * @return void
+     */
+    public function removeTimeout($ident)
+    {
+        if (isset($this->timeouts[$ident])) {
+            unset($this->timeouts[$ident]);
+        }
     }
 }

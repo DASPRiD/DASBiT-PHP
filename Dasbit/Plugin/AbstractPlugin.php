@@ -64,8 +64,6 @@ abstract class AbstractPlugin
         if ($this->dbSchema !== null) {           
             $this->db = new \Dasbit\Database($databasePath . '/' . $this->getName() . '.db', $this->dbSchema);
         }
-        
-        $this->init();
     }
     
     /**
@@ -79,11 +77,28 @@ abstract class AbstractPlugin
     }
     
     /**
-     * Initiate the plugin.
+     * Enable the plugin.
+     * 
+     * In this method you should register commands, hooks, triggers and
+     * timeouts. If you need to do initial stuff, overwrite the __construct(),
+     * as this method may be called several times.
      * 
      * @return void
      */
-    abstract protected function init();
+    abstract public function enable();
+    
+    /**
+     * Disable the plugin.
+     * 
+     * You don't have to overwrite this method to remove commands and such, as
+     * they are automatically removed by plugin manager. This method is
+     * intended to remove running sockets and so forth.
+     * 
+     * @return void
+     */
+    public function disable()
+    {
+    }
     
     /**
      * Register a command.

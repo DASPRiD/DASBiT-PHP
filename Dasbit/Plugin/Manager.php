@@ -71,6 +71,13 @@ class Manager
      * @var array
      */
     protected $triggers = array();
+    
+    /**
+     * Registered timeouts.
+     * 
+     * @var array
+     */
+    protected $timeouts = array();
        
     /**
      * Load plugins from a directory.
@@ -100,7 +107,12 @@ class Manager
             
             $pluginName = '\\Plugin\\' . $fileInfo->getBasename('.php');
             include $pluginsPath . '/' . $fileInfo->getFilename();
-            $this->registerPlugin(new $pluginName($this, $databasePath));
+            
+            $plugin = new $pluginName($this, $databasePath);
+            
+            if ($plugin instanceof AbstractPlugin) {
+                $this->registerPlugin($plugin);
+            }
         }
     }
     
@@ -135,10 +147,11 @@ class Manager
             $enabled = $this->getPlugin('plugins')->isEnabled($plugin->getName());
         }
         
-        $this->plugins[$plugin->getName()] = array(
-            'plugin'  => $plugin,
-            'enabled' => $enabled
-        );
+        $this->plugins[$plugin->getName()] = $plugin;
+        
+        if ($enabled) {
+            $plugin->enable();
+        }
         
         return $this;
     }
@@ -166,7 +179,7 @@ class Manager
             return null;
         }
         
-        return $this->plugins[$pluginName]['plugin'];
+        return $this->plugins[$pluginName];
     }
     
     /**
@@ -178,7 +191,7 @@ class Manager
     public function enablePlugin($pluginName)
     {
         if (isset($this->plugins[$pluginName])) {
-            $this->plugins[$pluginName]['enabled'] = true;
+            $this->plugins[$pluginName]->enable();
         }
     }
     
@@ -191,7 +204,37 @@ class Manager
     public function disablePlugin($pluginName)
     {
         if (isset($this->plugins[$pluginName])) {
-            $this->plugins[$pluginName]['enabled'] = false;
+            // Remove commands
+            foreach ($this->commands as $command => $data) {
+                if ($data['pluginName'] === $pluginName) {
+                    unset($this->commands[$command]);
+                }
+            }
+            
+            // Remove Triggers
+            foreach ($this->triggers as $key => $data) {
+                if ($data['pluginName'] === $pluginName) {
+                    unset($this->triggers[$key]);
+                }
+            }
+            
+            // Remove hooks
+            foreach ($this->hooks as $hookName => $hooks) {
+                foreach ($hooks as $key => $data) {
+                    if ($data['pluginName'] === $pluginName) {
+                        unset($this->hooks[$hookName][$key]);
+                    }
+                }
+            }
+            
+            // Remove timeouts
+            if (isset($this->timeouts[$pluginName])) {
+                foreach ($this->timeouts[$pluginName] as $ident) {
+                    $this->client->getReactor()->removeTimeout($ident);
+                }
+                
+                unset($this->timeouts[$pluginName]);
+            }
         }
     }
     
@@ -219,7 +262,11 @@ class Manager
      * @return void
      */
     public function registerCommand($pluginName, $command, $callback, $restrict = null)
-    {       
+    {
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin "%s" was not registered'));
+        }
+        
         if (is_string($command)) {
             $command = array($command);
         }
@@ -243,6 +290,10 @@ class Manager
      */
     public function registerHook($pluginName, $hook, $callback)
     {
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin "%s" was not registered'));
+        }
+        
         if (!isset($this->hooks[$hook])) {
             $this->hooks[$hook] = array();
         }
@@ -263,9 +314,13 @@ class Manager
      */
     public function registerTrigger($pluginName, $pattern, $callback)
     {
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin "%s" was not registered'));
+        }
+        
         $this->triggers[] = array(
-            'pattern'    => $pattern,
             'pluginName' => $pluginName,
+            'pattern'    => $pattern,
             'callback'   => $callback
         );
     }
@@ -273,13 +328,46 @@ class Manager
     /**
      * Register a timeout.
      * 
+     * @param  string  $pluginName
      * @param  integer $seconds
      * @param  mixed   $callback
      * @return void
      */
-    public function registerTimeout($seconds, $callback)
+    public function registerTimeout($pluginName, $seconds, $callback)
     {
-        $this->getClient()->getReactor()->addTimeout($seconds, $callback);
+        if (!isset($this->plugins[$pluginName])) {
+            throw new RuntimeException(sprintf('Plugin "%s" was not registered'));
+        }
+        
+        if (!isset($this->timeouts[$pluginName])) {
+            $this->timeouts[$pluginName] = array();
+        }
+        
+        $manager = $this;
+        
+        $cleanupCallback = function($index) use ($manager, $pluginName, $callback)
+        {
+            $manager->timeoutExecuted($pluginName, $index);
+            call_user_func($callback);
+        };
+        
+        $ident = $this->getClient()->getReactor()->addTimeout($seconds, $cleanupCallback);
+        
+        $this->timeouts[$pluginName][] = $ident;
+    }
+    
+    /**
+     * Called after a timeout was executed.
+     * 
+     * @param  string $pluginName
+     * @param  string $ident
+     * @return void
+     */
+    public function timeoutExecuted($pluginName, $index)
+    {
+        if (isset($this->timeouts[$pluginName][$index])) {
+            unset($this->timeouts[$pluginName][$index]);
+        }
     }
     
     /**
@@ -296,9 +384,7 @@ class Manager
         }
         
         foreach ($this->hooks[$hook] as $hookData) {
-            if ($this->plugins[$hookData['pluginName']]['enabled']) {
-                call_user_func($hookData['callback'], $hook, $data);
-            }
+            call_user_func($hookData['callback'], $hook, $data);
         }
     }
     
@@ -314,9 +400,9 @@ class Manager
 
         // Check for commands
         if (substr($message, 0, strlen($this->commandPrefix)) === $this->commandPrefix) {
-            $command  = substr($message, strlen($this->commandPrefix), (strpos($message, ' ') ?: strlen($message)) - strlen($this->commandPrefix));
+            $command = substr($message, strlen($this->commandPrefix), (strpos($message, ' ') ?: strlen($message)) - strlen($this->commandPrefix));
 
-            if (isset($this->commands[$command]) && $this->plugins[$this->commands[$command]['pluginName']]['enabled']) {
+            if (isset($this->commands[$command])) {
                 $privMsg->setMessage(substr($message, strlen($this->commandPrefix) + strlen($command) + 1));
  
                 if ($this->commands[$command]['restrict'] === null) {
@@ -330,10 +416,8 @@ class Manager
         
         // Check for triggers
         foreach ($this->triggers as $trigger) {
-            if ($this->plugins[$trigger['pluginName']]['enabled']) {
-                if (preg_match('(' . $trigger['pattern'] . ')', $message)) {
-                    call_user_func($trigger['callback'], $privMsg);
-                }
+            if (preg_match('(' . $trigger['pattern'] . ')', $message)) {
+                call_user_func($trigger['callback'], $privMsg);
             }
         }
     }

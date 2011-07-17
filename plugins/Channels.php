@@ -45,12 +45,12 @@ class Channels extends AbstractPlugin
     );
     
     /**
-     * init(): defined by Plugin.
+     * enable(): defined by Plugin.
      * 
-     * @see    Plugin::init()
+     * @see    Plugin::enable()
      * @return void
      */
-    protected function init()
+    public function enable()
     {
         $this->registerCommand('join', 'join', 'channels.join')
              ->registerCommand('part', 'part', 'channels.part')

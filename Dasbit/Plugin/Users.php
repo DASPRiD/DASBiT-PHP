@@ -73,12 +73,12 @@ class Users extends AbstractPlugin
     protected $actionStack = array();
 
     /**
-     * init(): defined by Plugin.
+     * enable(): defined by Plugin.
      * 
-     * @see    Plugin::init()
+     * @see    Plugin::enable()
      * @return void
      */
-    protected function init()
+    public function enable()
     {
         $this->registerCommand('master', 'setMaster')
              ->registerCommand('acl', 'setAcl', 'users.acl')
