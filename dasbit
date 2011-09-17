@@ -33,11 +33,11 @@ $commandPrefix = '!';
 $databasePath  = __DIR__ . '/data';
 $pluginsPath   = __DIR__ . '/plugins';
 
-$reactor       = new \Dasbit\Reactor();
 $cli           = new \Dasbit\Cli();
 $pluginManager = new \Dasbit\Plugin\Manager($pluginsPath, $databasePath, $commandPrefix);
-$client        = new \Dasbit\Irc\Client($reactor, $cli, $pluginManager);
+$client        = new \Dasbit\Irc\Client($cli, $pluginManager);
 
 // Connect the client and start the reactor
 $client->connect($hostname, $port, $nickname, $username);
-$reactor->run();
+
+\Dasbit\Net\Reactor::run();

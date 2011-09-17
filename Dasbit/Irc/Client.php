@@ -17,7 +17,8 @@
  */
 namespace Dasbit\Irc;
 
-use \Dasbit\Reactor,
+use \Dasbit\Net\Reactor,
+    \Dasbit\Net\Socket,
     \Dasbit\Cli,
     \Dasbit\Plugin\Manager as PluginManager;
 
@@ -38,13 +39,6 @@ class Client
     const REPLY_NOTICE = 'notice';
     
     /**
-     * Reactor instance.
-     * 
-     * @var Reactor
-     */
-    protected $reactor;
-
-    /**
      * CLI instance.
      *
      * @var Cli
@@ -59,11 +53,11 @@ class Client
     protected $pluginManager;
 
     /**
-     * Address of the IRC server.
+     * Hostname of the IRC server.
      *
      * @var string
      */
-    protected $address;
+    protected $hostname;
 
     /**
      * Port of the IRC server.
@@ -94,16 +88,9 @@ class Client
     protected $currentNickname;
 
     /**
-     * Whether the client is connected.
-     *
-     * @var boolean
-     */
-    protected $connected;
-
-    /**
      * Client socket.
      *
-     * @var resource
+     * @var Socket
      */
     protected $socket;
 
@@ -145,22 +132,35 @@ class Client
     /**
      * Instantiate a new IRC client.
      *
-     * @param  Reactor       $reactor
      * @param  Cli           $cli
      * @param  PluginManager $pluginManager
      * @return void
      */
-    public function __construct(Reactor $reactor, Cli $cli, PluginManager $pluginManager)
+    public function __construct(Cli $cli, PluginManager $pluginManager)
     {
         $pluginManager->setClient($this);
         
-        $this->reactor       = $reactor;
         $this->cli           = $cli;
         $this->pluginManager = $pluginManager;
         $this->ctcp          = new Ctcp();
         $this->sendQueue     = new PriorityQueue();
+        $this->socket        = new Socket();
         
-        $this->reactor->addTimeout(1, array($this, 'sendQueued'));
+        $client = $this;
+        
+        $this->socket->onConnect(function() use ($client) {
+            $client->send('NICK', $client->getNickname(), 100, 0, 1);
+            $client->send('USER', array($client->getUsername(), $client->getHostname(), $client->getHostname(), 'DASBiT'), 100, 1);
+            
+            Reactor::addTimeout(60, array($client, 'checkForLag'));
+        })->onRead(
+            array($this, 'receiveData')
+        )->onDisconnect(function() use ($client) {
+            $client->disconnect();
+            $client->connect();
+        }); 
+        
+        Reactor::addTimeout(1, array($this, 'sendQueued'));
     }
 
     /**
@@ -175,56 +175,16 @@ class Client
     public function connect($hostname = null, $port = null, $nickname = null, $username = null)
     {
         if ($hostname !== null && $port !== null && $nickname !== null && $username !== null) {
-            $address = gethostbyname($hostname);
-
-            if (ip2long($address) === false || ($address === gethostbyaddr($address)
-                && preg_match("#.*\.[a-zA-Z]{2,3}$#", $hostname) === 0) )
-            {
-               throw new InvalidArgumentException('Hostname is not valid');
-            }
-        
-            $this->address       = $address;
-            $this->port          = $port;
-            $this->nickname      = $nickname;
-            $this->username      = $username;
-        }
-        
-        if ($this->address === null) {
-            throw new UnexpectedValueException('Connection parameters have not been set');
-        }
-        
-        while (!$this->connected) {
-            $this->cli->clientOutput(sprintf('Connecting to %s port %d...', $this->address, $this->port));
-
-            $this->socket = @socket_create(AF_INET, SOCK_STREAM, 0);
-
-            if ($this->socket === false) {
-                throw new SocketException(socket_strerror(socket_last_error()) and socket_clear_error());
-            }
-
-            $this->connected = @socket_connect($this->socket, $this->address, $this->port);
-            
-            if (!$this->connected) {
-                $this->cli->clientOutput(sprintf('Could not connect, waiting 5 seconds...', $this->address, $this->port));
-                sleep(5);
-            }
+            $this->hostname = $hostname;
+            $this->port     = $port;
+            $this->nickname = $nickname;
+            $this->username = $username;
         }
 
-        if (@socket_set_nonblock($this->socket) === false) {
-            throw new SocketException(socket_strerror(socket_last_error()) and socket_clear_error());
-        }
-
-        $this->reactor->addReader($this->socket, array($this, 'receiveData'));
-
-        $this->cli->clientOutput('Connected, authenticating...');
-
-        $this->send('NICK', $this->nickname, 100, 0, 1);
-        $this->send('USER', array($this->username, $this->address, $this->address, 'DASBiT'), 100, 1);
-        
-        $this->currentNickname = $this->nickname;
-        
+        $this->currentNickname  = $this->nickname;
         $this->lastTimeReceived = time();
-        $this->reactor->addTimeout(60, array($this, 'checkForLag'));
+        
+        $this->socket->connect($this->hostname, $this->port);
     }
 
     /**
@@ -237,9 +197,7 @@ class Client
         $this->sendQueue   = new PriorityQueue();
         $this->sendPenalty = 10;
         
-        $this->reactor->removeReader($this->socket);
-        socket_close($this->socket);
-        $this->connected = false;
+        $this->socket->close();
     }
 
     /**
@@ -335,34 +293,24 @@ class Client
     /**
      * Receive data.
      *
+     * @param  string $data
      * @return void
      */
-    public function receiveData()
+    public function receiveData($data)
     {
-        while (false !== ($data = socket_read($this->socket, 512))) {
-            if ($data === '') {
-                $this->cli->clientOutput('Disconnected from server, reconnecting in 10 seconds...');
+        $this->buffer .= $data;
+        
+        while (false !== ($pos = strpos($this->buffer, "\r\n"))) {
+            $message      = substr($this->buffer, 0, $pos + 2);
+            $this->buffer = substr($this->buffer, $pos + 2);
 
-                $this->disconnect();
-                $this->reactor->addTimeout(10, array($this, 'connect'));
-                return;
+            $this->cli->serverOutput($message);
+
+            if ($message === "\r\n") {
+                continue;
             }
-            
-            $this->lastTimeReceived  = time();
-            $this->buffer           .= $data;
 
-            while (false !== ($pos = strpos($this->buffer, "\r\n"))) {
-                $message      = substr($this->buffer, 0, $pos + 2);
-                $this->buffer = substr($this->buffer, $pos + 2);
-
-                $this->cli->serverOutput($message);
-
-                if ($message === "\r\n") {
-                    continue;
-                }
-
-                $this->handleMessage($message);
-            }
+            $this->handleMessage($message);
         }
     }
 
@@ -545,13 +493,13 @@ class Client
      */
     public function checkForLag()
     {
-        if ($this->connected && $this->lastTimeReceived + 300 <= time()) {
+        if ($this->socket->isConnected() && $this->lastTimeReceived + 300 <= time()) {
             $this->cli->clientOutput('Maximum lag reached, reconnecting...');
 
             $this->disconnect();
             $this->connect();
             
-            $this->reactor->addTimeout(60, array($this, 'checkForLag'));
+            Reactor::addTimeout(60, array($this, 'checkForLag'));
         }
     }
 
@@ -613,10 +561,10 @@ class Client
             $this->sendPenalty -= $item['penalty'];
             
             $this->cli->clientOutput(rtrim($item['message']));
-            socket_write($this->socket, $item['message'], strlen($item['message']));
+            $this->socket->write($item['message']);
         }
 
-        $this->reactor->addTimeout(1, array($this, 'sendQueued'));
+        Reactor::addTimeout(1, array($this, 'sendQueued'));
     }
 
     /**
@@ -697,6 +645,36 @@ class Client
     public function getReactor()
     {
         return $this->reactor;
+    }
+    
+    /**
+     * Get hostname.
+     * 
+     * @return string
+     */
+    public function getHostname()
+    {
+        return $this->hostname;
+    }
+    
+    /**
+     * Get port.
+     * 
+     * @return integer
+     */
+    public function getPort()
+    {
+        return $this->port;
+    }
+    
+    /**
+     * Get username.
+     * 
+     * @return string
+     */
+    public function getUsername()
+    {
+        return $this->username;
     }
     
     /**
